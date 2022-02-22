@@ -24,6 +24,10 @@ import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
 import org.onlab.packet.Ip6Address;
 import org.onlab.packet.Ip6Prefix;
+import org.onlab.packet.IpAddress;
+import org.onosproject.routing.bgp.mbgp.MBgpProtocolType;
+import org.onosproject.routing.bgp.mbgp.MBgpHandler;
+import org.onosproject.routing.bgp.mbgp.MBgpHandlerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +35,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A class for handling BGP UPDATE messages.
@@ -58,6 +64,7 @@ final class BgpUpdate {
                                  ChannelHandlerContext ctx,
                                  ChannelBuffer message) {
         DecodedBgpRoutes decodedBgpRoutes = new DecodedBgpRoutes();
+        Collection<MBgpHandler> mbgpHandlers = new ArrayList<>();
 
         int minLength =
             BgpConstants.BGP_UPDATE_MIN_LENGTH - BgpConstants.BGP_HEADER_LENGTH;
@@ -119,13 +126,15 @@ final class BgpUpdate {
         // Parse the Path Attributes
         //
         try {
-            parsePathAttributes(bgpSession, ctx, message, decodedBgpRoutes);
+            parsePathAttributes(bgpSession, ctx, message, decodedBgpRoutes, mbgpHandlers);
         } catch (BgpMessage.BgpParseException e) {
             log.debug("Exception parsing Path Attributes from BGP peer {}: ",
                       bgpSession.remoteInfo().bgpId(), e);
             // NOTE: The session was already closed, so nothing else to do
             return;
         }
+
+        mbgpHandlers.forEach(handler-> handler.commit(bgpSession, ctx));
 
         //
         // Update the BGP RIB-IN
@@ -182,7 +191,8 @@ final class BgpUpdate {
                                         BgpSession bgpSession,
                                         ChannelHandlerContext ctx,
                                         ChannelBuffer message,
-                                        DecodedBgpRoutes decodedBgpRoutes)
+                                        DecodedBgpRoutes decodedBgpRoutes,
+                                        Collection<MBgpHandler> mbgpHandlers)
         throws BgpMessage.BgpParseException {
 
         //
@@ -331,7 +341,8 @@ final class BgpUpdate {
                     parseAttributeTypeMpReachNlri(bgpSession, ctx,
                                                   attrTypeCode,
                                                   attrLen,
-                                                  attrFlags, message);
+                                                  attrFlags, message,
+                                                  mbgpHandlers);
                 if (mpNlriReach != null) {
                     mpNlriReachList.add(mpNlriReach);
                 }
@@ -342,7 +353,8 @@ final class BgpUpdate {
                 MpNlri mpNlriUnreach =
                     parseAttributeTypeMpUnreachNlri(bgpSession, ctx,
                                                     attrTypeCode, attrLen,
-                                                    attrFlags, message);
+                                                    attrFlags, message,
+                                                    mbgpHandlers);
                 if (mpNlriUnreach != null) {
                     mpNlriUnreachList.add(mpNlriUnreach);
                 }
@@ -1020,7 +1032,8 @@ final class BgpUpdate {
                                                 int attrTypeCode,
                                                 int attrLen,
                                                 int attrFlags,
-                                                ChannelBuffer message)
+                                                ChannelBuffer message,
+                                                Collection<MBgpHandler> mbgpHandlers)
         throws BgpMessage.BgpParseException {
         int attributeEnd = message.readerIndex() + attrLen;
 
@@ -1045,10 +1058,13 @@ final class BgpUpdate {
         if (((afi != BgpConstants.Open.Capabilities.MultiprotocolExtensions.AFI_IPV4) &&
              (afi != BgpConstants.Open.Capabilities.MultiprotocolExtensions.AFI_IPV6)) ||
             (safi != BgpConstants.Open.Capabilities.MultiprotocolExtensions.SAFI_UNICAST)) {
-            // Skip the attribute
-            message.resetReaderIndex();
-            message.skipBytes(attrLen);
-            return null;
+
+            if (!bgpSession.localInfo().extProtocolType(afi, safi)) {
+                // Skip the attribute
+                message.resetReaderIndex();
+                message.skipBytes(attrLen);
+                return null;
+            }
         }
 
         //
@@ -1066,7 +1082,7 @@ final class BgpUpdate {
             // UNREACHABLE
             break;
         }
-        if (nextHopLen != expectedNextHopLen) {
+        if (nextHopLen != expectedNextHopLen && expectedNextHopLen != 0) {
             // ERROR: Optional Attribute Error
             message.resetReaderIndex();
             actionsBgpUpdateOptionalAttributeError(
@@ -1091,8 +1107,10 @@ final class BgpUpdate {
         byte[] nextHopBuffer = new byte[nextHopLen];
         message.readBytes(nextHopBuffer, 0, nextHopLen);
         int reserved = message.readUnsignedByte();
+        IpAddress nextHop = IpAddress.valueOf(
+            nextHopLen==4?IpAddress.Version.INET:IpAddress.Version.INET6, nextHopBuffer);
         MpNlri mpNlri = new MpNlri(afi, safi);
-        try {
+            // try {
             switch (afi) {
             case BgpConstants.Open.Capabilities.MultiprotocolExtensions.AFI_IPV4:
                 // The next-hop address
@@ -1111,15 +1129,30 @@ final class BgpUpdate {
                                         message);
                 break;
             default:
+                MBgpProtocolType type = MBgpProtocolType.valueOf(afi, safi);
+                MBgpHandlerFactory factory = bgpSession.getBgpSessionManager().getMBgpHandlerFactory(type);
+                if(factory!=null){
+                    MBgpHandler handler = factory.createHandler();
+                    handler.parseAttributeTypeMpReachNlri(type, nextHop, attributeEnd - message.readerIndex(), message);
+                    mbgpHandlers.add(handler);
+                }
                 // UNREACHABLE
                 break;
             }
-        } catch (BgpMessage.BgpParseException e) {
-            // ERROR: Optional Attribute Error
+        // } catch (BgpMessage.BgpParseException e) {
+        //     log.info(e.getMessage());
+        //     // ERROR: Optional Attribute Error
+        //     message.resetReaderIndex();
+        //     actionsBgpUpdateOptionalAttributeError(
+        //         bgpSession, ctx, attrTypeCode, attrLen, attrFlags, message);
+        //     String errorMsg = "Malformed network layer reachability information";
+        //     throw new BgpMessage.BgpParseException(errorMsg);
+        // }
+
+        if (message.readerIndex() < attributeEnd || message.readerIndex() > attributeEnd) {
             message.resetReaderIndex();
-            actionsBgpUpdateOptionalAttributeError(
-                bgpSession, ctx, attrTypeCode, attrLen, attrFlags, message);
-            String errorMsg = "Malformed network layer reachability information";
+            actionsBgpUpdateOptionalAttributeError(bgpSession, ctx, attrTypeCode, attrLen, attrFlags, message);
+            String errorMsg = "Malformed network layer reachability information length";
             throw new BgpMessage.BgpParseException(errorMsg);
         }
 
@@ -1145,7 +1178,8 @@ final class BgpUpdate {
                                                 int attrTypeCode,
                                                 int attrLen,
                                                 int attrFlags,
-                                                ChannelBuffer message)
+                                                ChannelBuffer message,
+                                                Collection<MBgpHandler> mbgpHandlers)
         throws BgpMessage.BgpParseException {
         int attributeEnd = message.readerIndex() + attrLen;
 
@@ -1169,10 +1203,13 @@ final class BgpUpdate {
         if (((afi != BgpConstants.Open.Capabilities.MultiprotocolExtensions.AFI_IPV4) &&
              (afi != BgpConstants.Open.Capabilities.MultiprotocolExtensions.AFI_IPV6)) ||
             (safi != BgpConstants.Open.Capabilities.MultiprotocolExtensions.SAFI_UNICAST)) {
-            // Skip the attribute
-            message.resetReaderIndex();
-            message.skipBytes(attrLen);
-            return null;
+
+            if (!bgpSession.localInfo().extProtocolType(afi, safi)) {
+                // Skip the attribute
+                message.resetReaderIndex();
+                message.skipBytes(attrLen);
+                return null;
+            }
         }
 
         //
@@ -1194,6 +1231,13 @@ final class BgpUpdate {
                                         message);
                 break;
             default:
+                MBgpProtocolType type = MBgpProtocolType.valueOf(afi, safi);
+                MBgpHandlerFactory<?> factory = bgpSession.getBgpSessionManager().getMBgpHandlerFactory(type);
+                if(factory!=null){
+                    MBgpHandler handler = factory.createHandler();
+                    handler.parseAttributeTypeMpUnreachNlri(type, attributeEnd - message.readerIndex(), message);
+                    mbgpHandlers.add(handler);
+                }
                 // UNREACHABLE
                 break;
             }
@@ -1203,6 +1247,13 @@ final class BgpUpdate {
             actionsBgpUpdateOptionalAttributeError(
                 bgpSession, ctx, attrTypeCode, attrLen, attrFlags, message);
             String errorMsg = "Malformed withdrawn routes";
+            throw new BgpMessage.BgpParseException(errorMsg);
+        }
+
+        if (message.readerIndex() < attributeEnd || message.readerIndex() > attributeEnd) {
+            message.resetReaderIndex();
+            actionsBgpUpdateOptionalAttributeError(bgpSession, ctx, attrTypeCode, attrLen, attrFlags, message);
+            String errorMsg = "Malformed network layer reachability information length";
             throw new BgpMessage.BgpParseException(errorMsg);
         }
 

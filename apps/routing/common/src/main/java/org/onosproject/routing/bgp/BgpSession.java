@@ -17,6 +17,7 @@
 package org.onosproject.routing.bgp;
 
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
@@ -274,8 +275,10 @@ public class BgpSession extends SimpleChannelHandler {
     @Override
     public void channelOpen(ChannelHandlerContext ctx,
                             ChannelStateEvent channelEvent) {
+        channel = channelEvent.getChannel();
         bgpSessionManager.addSessionChannel(channelEvent.getChannel());
     }
+    public Channel channel;
 
     @Override
     public void channelClosed(ChannelHandlerContext ctx,

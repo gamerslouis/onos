@@ -23,6 +23,8 @@ import org.onlab.packet.Ip4Address;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.onosproject.routing.bgp.mbgp.MBgpProtocolType;
+
 /**
  * A class for handling BGP OPEN messages.
  */
@@ -368,7 +370,12 @@ final class BgpOpen {
                                    safi == BgpConstants.Open.Capabilities.MultiprotocolExtensions.SAFI_MULTICAST) {
                             bgpSession.remoteInfo().setIpv6Multicast();
                             bgpSession.localInfo().setIpv6Multicast();
-                        } else {
+                        } else if (bgpSession.getBgpSessionManager().getMBgpTypes()
+                                .contains(MBgpProtocolType.valueOf(afi, safi))) {
+                            bgpSession.localInfo().setExtensionCapability(afi, safi);
+                            bgpSession.remoteInfo().setExtensionCapability(afi, safi);
+                        } 
+                        else {
                             log.debug("BGP RX OPEN Capability: Unknown AFI = {} SAFI = {}",
                                       afi, safi);
                         }
@@ -478,7 +485,7 @@ final class BgpOpen {
             message.writeByte(
                     BgpConstants.Open.Capabilities.MultiprotocolExtensions.SAFI_UNICAST);
         }
-        // IPv6 multicast
+        // Extensions
         if (localInfo.ipv6Multicast()) {
             message.writeByte(BgpConstants.Open.Capabilities.TYPE);               // Param type
             message.writeByte(BgpConstants.Open.Capabilities.MIN_LENGTH +
@@ -493,6 +500,17 @@ final class BgpOpen {
             message.writeByte(
                     BgpConstants.Open.Capabilities.MultiprotocolExtensions.SAFI_MULTICAST);
         }
+
+        localInfo.getExtensionProtocolTypes().forEach(protype -> {
+            message.writeByte(BgpConstants.Open.Capabilities.TYPE); // Param type
+            message.writeByte(BgpConstants.Open.Capabilities.MIN_LENGTH
+                    + BgpConstants.Open.Capabilities.MultiprotocolExtensions.LENGTH); // Param len
+            message.writeByte(BgpConstants.Open.Capabilities.MultiprotocolExtensions.CODE); // Capab. code
+            message.writeByte(BgpConstants.Open.Capabilities.MultiprotocolExtensions.LENGTH); // Capab. len
+            message.writeShort(protype.getAfi());
+            message.writeByte(0); // Reserved field
+            message.writeByte(protype.getSafi());
+        });
 
         // 4 octet AS path capability
         if (localInfo.as4OctetCapability()) {

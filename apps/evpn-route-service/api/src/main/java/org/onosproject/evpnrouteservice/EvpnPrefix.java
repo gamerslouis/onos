@@ -32,6 +32,7 @@ public final class EvpnPrefix {
     private final RouteDistinguisher rd;
     private final MacAddress macAddress;
     private final IpPrefix ipAddress;
+    private final Label label;
 
     /**
      * Constructor to initialize the parameters.
@@ -41,13 +42,14 @@ public final class EvpnPrefix {
      * @param ipAddress  IP address
      */
     public EvpnPrefix(RouteDistinguisher rd, MacAddress macAddress,
-                      IpPrefix ipAddress) {
+                      IpPrefix ipAddress, Label label) {
         checkNotNull(rd);
         checkNotNull(macAddress);
         checkNotNull(ipAddress);
         this.rd = rd;
         this.macAddress = macAddress;
         this.ipAddress = ipAddress;
+        this.label = label;
     }
 
     /**
@@ -60,8 +62,9 @@ public final class EvpnPrefix {
      */
     public static EvpnPrefix evpnPrefix(RouteDistinguisher rd,
                                         MacAddress macAddress,
-                                        IpPrefix ipAddress) {
-        return new EvpnPrefix(rd, macAddress, ipAddress);
+                                        IpPrefix ipAddress,
+                                        Label label) {
+        return new EvpnPrefix(rd, macAddress, ipAddress, label);
     }
 
     /**
@@ -110,7 +113,8 @@ public final class EvpnPrefix {
 
         return Objects.equals(this.macAddress(), that.macAddress())
                 && Objects.equals(this.ipAddress, that.ipAddress)
-                && Objects.equals(this.rd, that.rd);
+                && Objects.equals(this.rd, that.rd)
+                && Objects.equals(this.label, that.label);
     }
 
     @Override

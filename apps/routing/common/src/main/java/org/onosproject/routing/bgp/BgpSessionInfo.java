@@ -19,6 +19,11 @@ package org.onosproject.routing.bgp;
 import org.onlab.packet.Ip4Address;
 
 import java.net.SocketAddress;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.onosproject.routing.bgp.mbgp.MBgpProtocolType;
 
 /**
  * Class for keeping information about a BGP session.
@@ -42,6 +47,7 @@ public class BgpSessionInfo {
     private boolean ipv6Unicast;                // IPv6/UNICAST AFI/SAFI
     private boolean ipv6Multicast;              // IPv6/MULTICAST AFI/SAFI
     private boolean as4OctetCapability;         // AS 4 octet path capability
+    private Set<MBgpProtocolType> mProtocolTypes = new HashSet<>(); // Other Types
 
     /**
      * Gets the BGP session address: local or remote.
@@ -269,5 +275,18 @@ public class BgpSessionInfo {
      */
     public void setAs4OctetCapability() {
         this.as4OctetCapability = true;
+    }
+
+    public void setExtensionCapability(int afi, int safi) {
+        this.mpExtensions = true;
+        this.mProtocolTypes.add(MBgpProtocolType.valueOf(afi, safi));
+    }
+
+    public Set<MBgpProtocolType> getExtensionProtocolTypes(){
+        return Collections.unmodifiableSet(mProtocolTypes);
+    }
+
+    public boolean extProtocolType(int afi, int safi){
+        return mProtocolTypes.contains(MBgpProtocolType.valueOf(afi, safi));
     }
 }

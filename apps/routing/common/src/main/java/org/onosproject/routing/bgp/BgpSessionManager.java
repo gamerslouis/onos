@@ -48,17 +48,24 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Dictionary;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import com.google.common.collect.ImmutableSet;
 
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.onlab.util.Tools.groupedThreads;
 
+import org.onosproject.routing.bgp.mbgp.MBgpHandlerFactoryRegistry;
+import org.onosproject.routing.bgp.mbgp.MBgpHandlerFactory;
+import org.onosproject.routing.bgp.mbgp.MBgpProtocolType;
+
 /**
  * BGP Session Manager class.
  */
-@Component(immediate = true, service = BgpInfoService.class)
-public class BgpSessionManager implements BgpInfoService {
+@Component(immediate = true, service = { BgpInfoService.class, MBgpHandlerFactoryRegistry.class })
+public class BgpSessionManager implements BgpInfoService, MBgpHandlerFactoryRegistry {
     private static final Logger log =
             LoggerFactory.getLogger(BgpSessionManager.class);
 
@@ -75,6 +82,7 @@ public class BgpSessionManager implements BgpInfoService {
     private ConcurrentMap<SocketAddress, BgpSession> bgpSessions =
             new ConcurrentHashMap<>();
     private Ip4Address myBgpId;        // Same BGP ID for all peers
+    private ConcurrentMap<MBgpProtocolType, MBgpHandlerFactory> mbgpFactories = new ConcurrentHashMap<>();
 
     private BgpRouteSelector bgpRouteSelector;
     private ConcurrentMap<Ip4Prefix, BgpRouteEntry> bgpRoutes4 =
@@ -237,7 +245,7 @@ public class BgpSessionManager implements BgpInfoService {
             return false;               // Duplicate BGP session
         }
         bgpSessions.put(bgpSession.remoteInfo().address(), bgpSession);
-
+        log.info("Session added: {}", bgpSession.remoteInfo().address());
         //
         // If the first connection, set my BGP ID to the local address
         // of the socket.
@@ -258,6 +266,7 @@ public class BgpSessionManager implements BgpInfoService {
      */
     void peerDisconnected(BgpSession bgpSession) {
         bgpSessions.remove(bgpSession.remoteInfo().address());
+        log.info("Remove session: {}",bgpSession.remoteInfo().address());
     }
 
     /**
@@ -352,5 +361,25 @@ public class BgpSessionManager implements BgpInfoService {
         isShutdown = true;
         allChannels.close().awaitUninterruptibly();
         serverBootstrap.releaseExternalResources();
+    }
+
+    @Override
+    public void registerMBgpHandlerFactory(MBgpProtocolType type, MBgpHandlerFactory factroy) {
+        mbgpFactories.put(type, factroy);
+    }
+
+    @Override
+    public void unregisterMBgpHandlerFactory(MBgpProtocolType type) {
+        mbgpFactories.remove(type);
+    }
+
+    @Override
+    public MBgpHandlerFactory getMBgpHandlerFactory(MBgpProtocolType type) {
+        return mbgpFactories.get(type);
+    }
+
+    @Override
+    public Set<MBgpProtocolType> getMBgpTypes() {
+        return mbgpFactories.keySet();
     }
 }

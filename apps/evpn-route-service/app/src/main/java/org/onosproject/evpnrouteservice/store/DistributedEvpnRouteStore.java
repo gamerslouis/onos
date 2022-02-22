@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import org.onlab.packet.IpAddress;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.evpnrouteservice.EvpnInternalRouteEvent;
+import org.onosproject.evpnrouteservice.EvpnPrefix;
 import org.onosproject.evpnrouteservice.EvpnRoute;
 import org.onosproject.evpnrouteservice.EvpnRouteSet;
 import org.onosproject.evpnrouteservice.EvpnRouteStore;
@@ -150,6 +151,11 @@ public class DistributedEvpnRouteStore extends
     @Override
     public Collection<EvpnRoute> getRoutesForNextHop(IpAddress ip) {
         return getDefaultRouteTable(ip).getRoutesForNextHop(ip);
+    }
+
+    @Override
+    public Collection<EvpnRoute> getRoutesForEvpnPrefix(EvpnPrefix prefix) {
+        return getDefaultRouteTable(prefix.ipAddress().address()).getRoutes(prefix).routes();
     }
 
     private void createRouteTable(EvpnRouteTableId tableId) {

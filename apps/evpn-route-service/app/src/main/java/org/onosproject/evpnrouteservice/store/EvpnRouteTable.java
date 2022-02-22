@@ -46,6 +46,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -53,6 +55,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Default implementation of a route table based on a consistent map.
  */
 public class EvpnRouteTable implements EvpnTable {
+
+    private static final Logger log = LoggerFactory
+            .getLogger(DistributedEvpnRouteStore.class);
 
     private final EvpnRouteTableId id;
     private final ConsistentMap<EvpnPrefix, Set<EvpnRoute>> routes;
@@ -192,30 +197,35 @@ public class EvpnRouteTable implements EvpnTable {
             implements MapEventListener<EvpnPrefix, Set<EvpnRoute>> {
 
         private EvpnInternalRouteEvent createRouteEvent(
-                EvpnInternalRouteEvent.Type type, MapEvent<EvpnPrefix, Set<EvpnRoute>>
-                event) {
-            Set<EvpnRoute> currentRoutes =
-                    (event.newValue() == null) ? Collections.emptySet() : event.newValue().value();
-            return new EvpnInternalRouteEvent(type, new EvpnRouteSet(id, event
-                    .key(), currentRoutes));
+                EvpnInternalRouteEvent.Type type, EvpnPrefix prefix, Set<EvpnRoute> routes) {
+            return new EvpnInternalRouteEvent(type, new EvpnRouteSet(id, prefix, routes));
         }
 
         @Override
         public void event(MapEvent<EvpnPrefix, Set<EvpnRoute>> event) {
             EvpnInternalRouteEvent ire = null;
+            log.info("Map event: {}", event.type());
             switch (event.type()) {
                 case INSERT:
-                    ire = createRouteEvent(EvpnInternalRouteEvent.Type.ROUTE_ADDED, event);
+                    ire = createRouteEvent(EvpnInternalRouteEvent.Type.ROUTE_ADDED, event.key(), event.newValue().value());
                     break;
                 case UPDATE:
+                    log.info("> {} {}",event.newValue().value().size(),event.oldValue().value().size());
+                    Set<EvpnRoute> routes;
+                    EvpnInternalRouteEvent.Type type;
                     if (event.newValue().value().size() > event.oldValue().value().size()) {
-                        ire = createRouteEvent(EvpnInternalRouteEvent.Type.ROUTE_ADDED, event);
+                        type = EvpnInternalRouteEvent.Type.ROUTE_ADDED;
+                        routes = new HashSet<>(event.newValue().value());
+                        routes.removeAll(event.oldValue().value());
                     } else {
-                        ire = createRouteEvent(EvpnInternalRouteEvent.Type.ROUTE_REMOVED, event);
+                        type = EvpnInternalRouteEvent.Type.ROUTE_REMOVED;
+                        routes = new HashSet<>(event.oldValue().value());
+                        routes.removeAll(event.newValue().value());
                     }
+                    ire = createRouteEvent(type, event.key(), routes);
                     break;
                 case REMOVE:
-                    ire = createRouteEvent(EvpnInternalRouteEvent.Type.ROUTE_REMOVED, event);
+                    ire = createRouteEvent(EvpnInternalRouteEvent.Type.ROUTE_REMOVED, event.key(), event.oldValue().value());
                     break;
                 default:
                     break;

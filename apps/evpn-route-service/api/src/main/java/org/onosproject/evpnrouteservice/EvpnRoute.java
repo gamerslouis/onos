@@ -159,7 +159,7 @@ public class EvpnRoute {
      */
     public EvpnPrefix evpnPrefix() {
         return new EvpnPrefix(rd, prefixMac,
-                              prefix);
+                              prefix, label);
     }
 
 

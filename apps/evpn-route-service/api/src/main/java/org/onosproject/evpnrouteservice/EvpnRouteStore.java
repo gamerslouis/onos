@@ -66,4 +66,13 @@ public interface EvpnRouteStore extends Store<EvpnInternalRouteEvent,
     // TODO think about including route table info
     Collection<EvpnRoute> getRoutesForNextHop(IpAddress ip);
 
+
+    /**
+     * Returns the routes for the given evpn prefix
+     *
+     * @param ip IP address of the next hop
+     * @return routes for the given evpn prefix
+     */
+    // TODO think about including route table info
+    Collection<EvpnRoute> getRoutesForEvpnPrefix(EvpnPrefix prefix);
 }

@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A class for preparing BGP messages.
  */
-final class BgpMessage {
+public final class BgpMessage {
     private static final Logger log =
         LoggerFactory.getLogger(BgpMessage.class);
 
@@ -44,7 +44,7 @@ final class BgpMessage {
      * @param payload the message payload to transmit (BGP header excluded)
      * @return the message to transmit (BGP header included)
      */
-    static ChannelBuffer prepareBgpMessage(int type, ChannelBuffer payload) {
+    public static ChannelBuffer prepareBgpMessage(int type, ChannelBuffer payload) {
         ChannelBuffer message =
             ChannelBuffers.buffer(BgpConstants.BGP_HEADER_LENGTH +
                                   payload.readableBytes());
@@ -67,7 +67,7 @@ final class BgpMessage {
     /**
      * An exception indicating a parsing error of the BGP message.
      */
-    static final class BgpParseException extends Exception {
+    public static final class BgpParseException extends Exception {
         /**
          * Default constructor.
          */
@@ -80,7 +80,7 @@ final class BgpMessage {
          *
          * @param message the message with the exception details
          */
-        BgpParseException(String message) {
+        public BgpParseException(String message) {
             super(message);
         }
     }
