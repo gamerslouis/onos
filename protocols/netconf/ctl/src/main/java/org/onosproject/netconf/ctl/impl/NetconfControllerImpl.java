@@ -58,8 +58,10 @@ import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.NetconfProxyMessage;
 import org.onosproject.netconf.NetconfProxyMessageHandler;
 import org.onosproject.netconf.NetconfSession;
+import org.onosproject.netconf.NetconfSessionFactory;
 import org.onosproject.netconf.config.NetconfDeviceConfig;
 import org.onosproject.netconf.config.NetconfSshClientLib;
+import org.onosproject.netconf.callhome.NetconfCallHomeController;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
 import org.onosproject.store.cluster.messaging.MessageSubject;
 import org.onosproject.store.serializers.KryoNamespaces;
@@ -154,6 +156,9 @@ public class NetconfControllerImpl implements NetconfController {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected ClusterService clusterService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected NetconfCallHomeController netconfCallHomeController;
 
     public static final Logger log = LoggerFactory
             .getLogger(NetconfControllerImpl.class);
@@ -370,7 +375,7 @@ public class NetconfControllerImpl implements NetconfController {
 
             if (netCfg != null) {
                 log.debug("Device {} is present in NetworkConfig", deviceId);
-                deviceInfo = new NetconfDeviceInfo(netCfg);
+                deviceInfo = new NetconfDeviceInfo(netCfg, deviceId);
             } else {
                 log.debug("Creating NETCONF device {}", deviceId);
                 deviceInfo = createDeviceInfo(deviceId);
@@ -744,7 +749,7 @@ public class NetconfControllerImpl implements NetconfController {
      * @deprecated in 1.14.0
      */
     @Deprecated
-    private class DefaultNetconfDeviceFactory implements NetconfDeviceFactory {
+    private class DefaultNetconfDeviceFactory implements NetconfDeviceFactory, NetconfSessionFactory {
 
         @Override
         public NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo) throws NetconfException {
@@ -760,7 +765,27 @@ public class NetconfControllerImpl implements NetconfController {
                 log.info("Creating NETCONF session to {} with {}",
                          netconfDeviceInfo.getDeviceId(), NetconfSshClientLib.APACHE_MINA);
             }
-            return new DefaultNetconfDevice(netconfDeviceInfo, isMaster, NetconfControllerImpl.this);
+            
+            if(netconfCallHomeController.isCallHomeDeviceId(netconfDeviceInfo.getDeviceId())) {
+                log.debug("Detect call home device, forward session create to call home controller");
+                return new DefaultNetconfDevice(netconfDeviceInfo, (NetconfSessionFactory)this, isMaster, NetconfControllerImpl.this);
+            }
+            else {
+                return new DefaultNetconfDevice(netconfDeviceInfo, isMaster, NetconfControllerImpl.this);
+            }
+        }
+
+        @Beta
+        @Override
+        public NetconfSession createNetconfSession(NetconfDeviceInfo netconfDeviceInfo,
+                NetconfController netconfController) throws NetconfException {
+            Optional<NetconfSession> session = netconfCallHomeController.createNetconfSession(netconfDeviceInfo);
+            if (session.isPresent()) {
+                return session.get();
+            }
+            else {
+                throw new NetconfException("can't open call home netconf session");
+            }
         }
     }
 

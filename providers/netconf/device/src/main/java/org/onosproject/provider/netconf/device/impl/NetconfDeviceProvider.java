@@ -66,6 +66,7 @@ import org.onosproject.netconf.NetconfDevice;
 import org.onosproject.netconf.NetconfDeviceListener;
 import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.config.NetconfDeviceConfig;
+import org.onosproject.netconf.callhome.NetconfCallHomeController;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -124,6 +125,9 @@ public class NetconfDeviceProvider extends AbstractProvider
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected NetconfController controller;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected NetconfCallHomeController callHomeController;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected NetworkConfigRegistry cfgService;
@@ -308,6 +312,12 @@ public class NetconfDeviceProvider extends AbstractProvider
                         .orElse(false);
         if (sessionExists) {
             return true;
+        }
+
+        // For callhome session, only check if ssh session exist, no tcp connect test
+        if(callHomeController.isCallHomeDeviceId(deviceId)) {
+            boolean sshSessionExists = callHomeController.getSessionMap().get(deviceId) != null;
+            return sshSessionExists;
         }
 
         //FIXME this is a workaround util device state is shared
@@ -546,6 +556,9 @@ public class NetconfDeviceProvider extends AbstractProvider
                 .set(AnnotationKeys.PROTOCOL, SCHEME_NAME.toUpperCase());
         if (config.path().isPresent()) {
             annotations.set(PATH, config.path().get());
+        }
+        if(callHomeController.isCallHomeDeviceId(deviceId)) {
+            annotations.set("callhome", "true");
         }
         return new DefaultDeviceDescription(deviceId.uri(), Device.Type.SWITCH,
                 UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, cid, true, annotations.build());

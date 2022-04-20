@@ -150,6 +150,11 @@ public class NetconfDeviceInfo {
         this.idleTimeoutSec = netconfConfig.idleTimeout();
     }
 
+    public NetconfDeviceInfo(NetconfDeviceConfig netconfConfig, DeviceId deviceId) {
+        this(netconfConfig);
+        this.deviceId = deviceId;
+    }
+
     /**
      * Allows the NETCONF SSH Client library to be set.
      *
