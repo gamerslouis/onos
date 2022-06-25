@@ -19,7 +19,6 @@ package org.onosproject.netconf.ctl.impl;
 
 import org.apache.commons.lang3.tuple.Triple;
 
-import com.google.common.annotations.Beta;
 import com.google.common.collect.Lists;
 
 import org.onosproject.cluster.ClusterService;
@@ -485,10 +484,6 @@ public class NetconfControllerImpl implements NetconfController {
         }
     }
 
-    private NetconfDevice createDevice(NetconfDeviceInfo deviceInfo) throws NetconfException {
-        return createDevice(deviceInfo, true);
-    }
-
     private NetconfDevice createDevice(NetconfDeviceInfo deviceInfo,
                                        boolean isMaster) throws NetconfException {
         NetconfDevice netconfDevice = deviceFactory.createNetconfDevice(deviceInfo, isMaster);
@@ -741,26 +736,32 @@ public class NetconfControllerImpl implements NetconfController {
     /**
      * Device factory for the specific NetconfDeviceImpl.
      *
-     * @deprecated in 1.14.0
      */
-    @Deprecated
     private class DefaultNetconfDeviceFactory implements NetconfDeviceFactory {
-
-        @Override
-        public NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo) throws NetconfException {
-            return createNetconfDevice(netconfDeviceInfo, true);
-        }
-
-        @Beta
         @Override
         public NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo,
                                                  boolean isMaster)
                 throws NetconfException {
-            if (isMaster) {
-                log.info("Creating NETCONF session to {} with {}",
-                         netconfDeviceInfo.getDeviceId(), NetconfSshClientLib.APACHE_MINA);
+            NetconfSession netconfSession = null;
+            try {
+                // will block until hello RPC handshake completes
+                if (isMaster) {
+                    log.info("Creating NETCONF session to {} with {}",
+                             netconfDeviceInfo.getDeviceId(), NetconfSshClientLib.APACHE_MINA);
+                    netconfSession = new NetconfSessionMinaImpl(netconfDeviceInfo);
+                } else {
+                    netconfSession = new NetconfSessionProxyImpl(
+                            netconfDeviceInfo,
+                            NetconfControllerImpl.this,
+                            getLocalNodeId()
+                    );
+                }
+            } catch (NetconfException e) {
+                throw new NetconfException("Cannot create connection and session for device " +
+                                                   netconfDeviceInfo, e);
             }
-            return new DefaultNetconfDevice(netconfDeviceInfo, isMaster, NetconfControllerImpl.this);
+
+            return new DefaultNetconfDevice(netconfDeviceInfo, netconfSession, isMaster);
         }
     }
 

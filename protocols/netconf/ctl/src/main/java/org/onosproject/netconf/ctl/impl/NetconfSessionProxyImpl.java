@@ -22,8 +22,6 @@ import org.onosproject.netconf.NetconfController;
 import org.onosproject.netconf.NetconfDeviceInfo;
 import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.NetconfProxyMessage;
-import org.onosproject.netconf.NetconfSession;
-import org.onosproject.netconf.NetconfSessionFactory;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -46,10 +44,10 @@ public class NetconfSessionProxyImpl extends AbstractNetconfSession {
 
     public NetconfSessionProxyImpl(NetconfDeviceInfo deviceInfo,
                                    NetconfController controller,
-                                   NodeId nodeId) {
+                                   NodeId localNodeId) {
         this.deviceInfo = deviceInfo;
         this.netconfController = controller;
-        this.sessionNodeId = nodeId;
+        this.sessionNodeId = localNodeId;
     }
 
     private <T> CompletableFuture<T> executeAtMasterCompletableFuture(
@@ -175,18 +173,6 @@ public class NetconfSessionProxyImpl extends AbstractNetconfSession {
             executeAtMaster(proxyMessage);
         } catch (NetconfException e) {
             log.error("Could not set onos capabilities : {}", e);
-        }
-    }
-
-
-    public static class ProxyNetconfSessionFactory implements NetconfSessionFactory {
-
-        @Override
-        public NetconfSession createNetconfSession(NetconfDeviceInfo netconfDeviceInfo,
-                                                   NetconfController netconfController) {
-            return new NetconfSessionProxyImpl(netconfDeviceInfo,
-                                               netconfController,
-                                               netconfController.getLocalNodeId());
         }
     }
 }

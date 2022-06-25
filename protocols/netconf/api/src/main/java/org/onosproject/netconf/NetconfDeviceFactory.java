@@ -16,8 +16,6 @@
 
 package org.onosproject.netconf;
 
-import com.google.common.annotations.Beta;
-
 /**
  * Abstract interface for the creation of a NETCONF device.
  */
@@ -31,8 +29,10 @@ public interface NetconfDeviceFactory {
      * @throws NetconfException when problems arise creating the device and establishing
      * the connection.
      */
-    NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo)
-            throws NetconfException;
+    default NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo)
+            throws NetconfException {
+        return createNetconfDevice(netconfDeviceInfo, true);
+    }
 
     /**
      * Creates a new NETCONF device based on the supplied information.
@@ -43,9 +43,6 @@ public interface NetconfDeviceFactory {
      * @throws NetconfException when problems arise creating the device and establishing
      * the connection.
      */
-    @Beta
-    default NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo,
-                                              boolean isMaster) throws NetconfException {
-        return createNetconfDevice(netconfDeviceInfo);
-    }
+    NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo,
+                                              boolean isMaster) throws NetconfException;
 }

@@ -175,10 +175,12 @@ public class NetconfAlarmProvider extends AbstractProvider implements AlarmProvi
         public void deviceAdded(DeviceId deviceId) {
             try {
                 NetconfDevice device = controller.getNetconfDevice(deviceId);
-                NetconfSession session = device.getSession();
-                InternalNotificationListener listener = new InternalNotificationListener(device.getDeviceInfo());
-                session.addDeviceOutputListener(listener);
-                idNotificationListenerMap.put(deviceId, listener);
+                if (device.isMasterSession()) {
+                    NetconfSession session = device.getSession();
+                    InternalNotificationListener listener = new InternalNotificationListener(device.getDeviceInfo());
+                    session.addDeviceOutputListener(listener);
+                    idNotificationListenerMap.put(deviceId, listener);
+                }
             } catch (NetconfException e) {
                 log.error("Device add fail {}", e.getMessage());
             }

@@ -41,14 +41,12 @@ import org.onosproject.net.DeviceId;
 import org.onosproject.net.driver.Driver;
 import org.onosproject.net.driver.DriverService;
 import org.onosproject.netconf.AbstractNetconfSession;
-import org.onosproject.netconf.NetconfController;
 import org.onosproject.netconf.NetconfDeviceInfo;
 import org.onosproject.netconf.NetconfDeviceOutputEvent;
 import org.onosproject.netconf.NetconfDeviceOutputEvent.Type;
 import org.onosproject.netconf.NetconfDeviceOutputEventListener;
 import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.NetconfSession;
-import org.onosproject.netconf.NetconfSessionFactory;
 import org.onosproject.netconf.NetconfTransportException;
 import org.slf4j.Logger;
 
@@ -743,6 +741,7 @@ public class NetconfSessionMinaImpl extends AbstractNetconfSession {
 
     @Override
     public void setOnosCapabilities(Iterable<String> capabilities) {
+        log.warn("Set ONOS netconf capabilities after connection established is not work");
         onosCapabilities = capabilities;
     }
 
@@ -867,19 +866,6 @@ public class NetconfSessionMinaImpl extends AbstractNetconfSession {
             if (completedReply != null) {
                 completedReply.complete(event.getMessagePayload());
             }
-        }
-    }
-
-    /**
-     * @deprecated in 1.14.0
-     */
-    @Deprecated
-    public static class MinaSshNetconfSessionFactory implements NetconfSessionFactory {
-
-        @Override
-        public NetconfSession createNetconfSession(NetconfDeviceInfo netconfDeviceInfo,
-                                                   NetconfController netconfController) throws NetconfException {
-            return new NetconfSessionMinaImpl(netconfDeviceInfo);
         }
     }
 }

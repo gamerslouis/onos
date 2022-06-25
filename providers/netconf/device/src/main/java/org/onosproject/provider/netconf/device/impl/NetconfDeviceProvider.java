@@ -63,6 +63,7 @@ import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.netconf.NetconfController;
 import org.onosproject.netconf.NetconfDevice;
+import org.onosproject.netconf.NetconfDeviceInfo;
 import org.onosproject.netconf.NetconfDeviceListener;
 import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.config.NetconfDeviceConfig;
@@ -277,7 +278,7 @@ public class NetconfDeviceProvider extends AbstractProvider
                     if (controller.getNetconfDevice(deviceId) == null ||
                                !controller.getNetconfDevice(deviceId).isMasterSession()) {
                         connectionExecutor.execute(exceptionSafe(() -> withDeviceLock(
-                                () -> initiateConnection(deviceId), deviceId).run()));
+                                () -> initiateConnection(deviceId, newRole), deviceId).run()));
                         log.debug("Accepting mastership role change to {} for device {}", newRole, deviceId);
                     }
                     break;
@@ -463,43 +464,62 @@ public class NetconfDeviceProvider extends AbstractProvider
         }));
     }
 
-    //initiating the SSh connection the a given device.
-    private void initiateConnection(DeviceId deviceId) {
-
-        if (!isReachable(deviceId)) {
-            log.warn("Can't connect to device {}", deviceId);
-            return;
-        }
-
+    /**
+     * Will appropriately create connection with the device.
+     * For Master role: will create secure transport and proxy sessions.
+     * For Standby role: will create only proxy session and disconnect secure transport session.
+     * For none role: will disconnect all sessions.
+     *
+     * @param deviceId device id
+     * @param newRole new role
+     */
+    private void initiateConnection(DeviceId deviceId, MastershipRole newRole) {
         try {
-            NetconfDevice deviceNetconf = controller.connectDevice(deviceId);
-            if (deviceNetconf != null) {
-                //storeDeviceKey(config.sshKey(), config.username(), config.password(), deviceId);
-                NetconfDeviceConfig config = cfgService.getConfig(deviceId, NetconfDeviceConfig.class);
-                //getting the device description
-                DeviceDescription deviceDescription = getDeviceDescription(deviceId, config);
-                //connecting device to ONOS
-                log.debug("Connected NETCONF device {}, on {}:{} {} with username {}",
-                        deviceId, config.ip(), config.port(),
-                        (config.path().isPresent() ? "/" + config.path().get() : ""),
-                        config.username());
-                providerService.deviceConnected(deviceId, deviceDescription);
+            NetconfDevice device = null;
+            if (newRole.equals(MastershipRole.MASTER)) {
+                //Only netconf session on master node create connection,
+                //so only test reachability with master role
+                if (!isReachable(deviceId)) {
+                    log.warn("Can't create TCP connect to device {}", deviceId);
+                } else {
+                    device = controller.connectDevice(deviceId, true);
+                }
+            } else if (newRole.equals(MastershipRole.STANDBY)) {
+                device = controller.connectDevice(deviceId, false);
+            }
+
+            if (device != null) {
+                if (newRole.equals(MastershipRole.MASTER)) {
+                    NetconfDeviceInfo deviceInfo = device.getDeviceInfo();
+                    //getting the device description
+                    DeviceDescription deviceDescription = getDeviceDescription(deviceId, deviceInfo);
+                    //connecting device to ONOS
+                    log.debug("Connected NETCONF device {}, on {}:{} {} with username {}",
+                              deviceId, deviceInfo.ip(), deviceInfo.port(),
+                              (deviceInfo.path().isPresent() ? "/" + deviceInfo.path().get() : ""),
+                              deviceInfo.name());
+                    providerService.deviceConnected(deviceId, deviceDescription);
+                }
+
+                providerService.receivedRoleReply(deviceId, newRole, newRole);
             } else {
-                mastershipService.relinquishMastership(deviceId);
-                deviceKeyAdminService.removeKey(DeviceKeyId.deviceKeyId(deviceId.toString()));
-                log.error("Can't connect to NETCONF device {}", deviceId);
+                if (newRole.equals(MastershipRole.MASTER)) {
+                    deviceKeyAdminService.removeKey(DeviceKeyId.deviceKeyId(deviceId.toString()));
+                }
+                providerService.receivedRoleReply(deviceId, newRole, MastershipRole.NONE);
             }
         } catch (Exception e) {
-            mastershipService.relinquishMastership(deviceId);
+            if (deviceService.getDevice(deviceId) != null) {
+                providerService.deviceDisconnected(deviceId);
+            }
+            providerService.receivedRoleReply(deviceId, newRole, MastershipRole.NONE);
             deviceKeyAdminService.removeKey(DeviceKeyId.deviceKeyId(deviceId.toString()));
             throw new IllegalStateException(new NetconfException(
                     "Can't connect to NETCONF device " + deviceId, e));
-
         }
-
     }
 
-    private DeviceDescription getDeviceDescription(DeviceId deviceId, NetconfDeviceConfig config) {
+    private DeviceDescription getDeviceDescription(DeviceId deviceId, NetconfDeviceInfo deviceInfo) {
         Driver driver = driverService.getDriver(deviceId);
         if (driver.hasBehaviour(DeviceDescriptionDiscovery.class)) {
             final DriverData data = new DefaultDriverData(driver, deviceId);
@@ -507,16 +527,16 @@ public class NetconfDeviceProvider extends AbstractProvider
             //creating the behaviour because the core has yet no notion of device.
             DeviceDescriptionDiscovery deviceDescriptionDiscovery =
                     driver.createBehaviour(handler, DeviceDescriptionDiscovery.class);
-            return getDeviceRepresentation(deviceId, config, deviceDescriptionDiscovery);
+            return getDeviceRepresentation(deviceId, deviceInfo, deviceDescriptionDiscovery);
         } else {
-            return existingOrEmptyDescription(deviceId, config);
+            return existingOrEmptyDescription(deviceId, deviceInfo);
         }
     }
 
-    private DeviceDescription getDeviceRepresentation(DeviceId deviceId, NetconfDeviceConfig config,
+    private DeviceDescription getDeviceRepresentation(DeviceId deviceId, NetconfDeviceInfo deviceInfo,
                                                       DeviceDescriptionDiscovery deviceDescriptionDiscovery) {
 
-        DeviceDescription existingOrEmptyDescription = existingOrEmptyDescription(deviceId, config);
+        DeviceDescription existingOrEmptyDescription = existingOrEmptyDescription(deviceId, deviceInfo);
         DeviceDescription newDescription = deviceDescriptionDiscovery.discoverDeviceDetails();
         if (newDescription == null) {
             return existingOrEmptyDescription;
@@ -527,7 +547,7 @@ public class NetconfDeviceProvider extends AbstractProvider
                         existingOrEmptyDescription.annotations()));
     }
 
-    private DeviceDescription existingOrEmptyDescription(DeviceId deviceId, NetconfDeviceConfig config) {
+    private DeviceDescription existingOrEmptyDescription(DeviceId deviceId, NetconfDeviceInfo deviceInfo) {
         Device device = deviceService.getDevice(deviceId);
 
         if (deviceService.getDevice(deviceId) != null) {
@@ -539,54 +559,17 @@ public class NetconfDeviceProvider extends AbstractProvider
         }
 
         ChassisId cid = new ChassisId();
-        String ipAddress = config.ip().toString();
+        String ipAddress = deviceInfo.ip().toString();
         DefaultAnnotations.Builder annotations = DefaultAnnotations.builder()
                 .set(IPADDRESS, ipAddress)
-                .set(PORT, String.valueOf(config.port()))
+                .set(PORT, String.valueOf(deviceInfo.port()))
                 .set(AnnotationKeys.PROTOCOL, SCHEME_NAME.toUpperCase());
-        if (config.path().isPresent()) {
-            annotations.set(PATH, config.path().get());
+        if (deviceInfo.path().isPresent()) {
+            annotations.set(PATH, deviceInfo.path().get());
         }
         return new DefaultDeviceDescription(deviceId.uri(), Device.Type.SWITCH,
                 UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, cid, true, annotations.build());
     }
-
-    /**
-     * Will appropriately create connections with the device.
-     * For Master role: will create secure transport and proxy sessions.
-     * For Standby role: will create only proxy session and disconnect secure transport session.
-     * For none role: will disconnect all sessions.
-     *
-     * @param deviceId device id
-     * @param newRole new role
-     */
-    private void initiateConnection(DeviceId deviceId, MastershipRole newRole) {
-        try {
-            if (isReachable(deviceId)) {
-                NetconfDevice device = null;
-                if (newRole.equals(MastershipRole.MASTER)) {
-                    device = controller.connectDevice(deviceId, true);
-                } else if (newRole.equals(MastershipRole.STANDBY)) {
-                    device = controller.connectDevice(deviceId, false);
-                }
-
-                if (device != null) {
-                    providerService.receivedRoleReply(deviceId, newRole, newRole);
-                } else {
-                    providerService.receivedRoleReply(deviceId, newRole, MastershipRole.NONE);
-                }
-
-            }
-        } catch (Exception e) {
-            if (deviceService.getDevice(deviceId) != null) {
-                providerService.deviceDisconnected(deviceId);
-            }
-            deviceKeyAdminService.removeKey(DeviceKeyId.deviceKeyId(deviceId.toString()));
-            throw new IllegalStateException(new NetconfException(
-                    "Can't connect to NETCONF device " + deviceId, e));
-        }
-    }
-
 
     private void discoverOrUpdatePorts(DeviceId deviceId) {
         retriedPortDiscoveryMap.put(deviceId, new AtomicInteger(0));

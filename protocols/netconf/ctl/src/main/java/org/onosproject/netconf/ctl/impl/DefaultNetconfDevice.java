@@ -16,12 +16,10 @@
 
 package org.onosproject.netconf.ctl.impl;
 
-import org.onosproject.netconf.NetconfController;
 import org.onosproject.netconf.NetconfDevice;
 import org.onosproject.netconf.NetconfDeviceInfo;
 import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.NetconfSession;
-import org.onosproject.netconf.NetconfSessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,76 +35,25 @@ public class DefaultNetconfDevice implements NetconfDevice {
     private boolean deviceState = true;
     private NetconfSession netconfSession;
     private boolean isMasterSession = false;
-    private NetconfSession netconfProxySession;
 
-    // will block until hello RPC handshake completes
     /**
      * Creates a new default NETCONF device with the information provided.
      * The device gets created only if no exception is thrown while connecting to
      * it and establishing the NETCONF session.
      * The secure transport session will only be created if isMaster is true.
      * @param deviceInfo information about the device to be created.
+     * @param session netconf session the device use
      * @param isMaster if true create secure transport session, otherwise create proxy session.
-     * @param netconfController netconf controller object
      * @throws NetconfException if there are problems in creating or establishing
      * the underlying NETCONF connection and session.
      */
     public DefaultNetconfDevice(NetconfDeviceInfo deviceInfo,
-                                boolean isMaster,
-                                NetconfController netconfController)
+                                NetconfSession session,
+                                boolean isMaster)
             throws NetconfException {
         netconfDeviceInfo = deviceInfo;
-        try {
-            if (isMaster) {
-                netconfSession = new NetconfSessionMinaImpl(deviceInfo);
-                isMasterSession = true;
-                netconfProxySession = netconfSession;
-            } else {
-                netconfProxySession = new NetconfSessionProxyImpl
-                        .ProxyNetconfSessionFactory()
-                        .createNetconfSession(deviceInfo, netconfController);
-            }
-        } catch (NetconfException e) {
-            deviceState = false;
-            throw new NetconfException("Cannot create connection and session for device " +
-                                               deviceInfo, e);
-        }
-    }
-
-    // will block until hello RPC handshake completes
-    /**
-     * Creates a new default NETCONF device with the information provided.
-     * The device gets created only if no exception is thrown while connecting to
-     * it and establishing the NETCONF session.
-     * The secure transport session will only be created if isMaster is true.
-     * @param deviceInfo information about the device to be created.
-     * @param factory the factory used to create the session
-     * @param isMaster if true create secure transport session, otherwise create proxy session.
-     * @param netconfController netconf controller object
-     * @throws NetconfException if there are problems in creating or establishing
-     * the underlying NETCONF connection and session.
-     */
-    public DefaultNetconfDevice(NetconfDeviceInfo deviceInfo,
-                                NetconfSessionFactory factory,
-                                boolean isMaster,
-                                NetconfController netconfController)
-            throws NetconfException {
-        netconfDeviceInfo = deviceInfo;
-        try {
-            if (isMaster) {
-                netconfSession = factory.createNetconfSession(deviceInfo, netconfController);
-                isMasterSession = true;
-                netconfProxySession = netconfSession;
-            } else {
-                netconfProxySession = new NetconfSessionProxyImpl
-                        .ProxyNetconfSessionFactory()
-                        .createNetconfSession(deviceInfo, netconfController);
-            }
-        } catch (NetconfException e) {
-            deviceState = false;
-            throw new NetconfException("Cannot create connection and session for device " +
-                                               deviceInfo, e);
-        }
+        netconfSession = session;
+        isMasterSession = isMaster;
     }
 
     @Override
@@ -116,17 +63,14 @@ public class DefaultNetconfDevice implements NetconfDevice {
 
     @Override
     public NetconfSession getSession() {
-        return netconfProxySession;
+        return netconfSession;
     }
 
     @Override
     public void disconnect() {
         deviceState = false;
         try {
-            if (isMasterSession) {
-                netconfSession.close();
-            }
-            netconfProxySession.close();
+            netconfSession.close();
         } catch (NetconfException e) {
             log.warn("Cannot communicate with the device {} session already closed", netconfDeviceInfo);
         }

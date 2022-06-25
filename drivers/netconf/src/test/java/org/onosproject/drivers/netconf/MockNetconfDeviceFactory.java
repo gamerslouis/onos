@@ -27,7 +27,8 @@ import org.onosproject.netconf.NetconfException;
 public class MockNetconfDeviceFactory implements NetconfDeviceFactory {
 
     @Override
-    public NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo) throws NetconfException {
+    public NetconfDevice createNetconfDevice(NetconfDeviceInfo netconfDeviceInfo,
+                                             boolean isMaster) throws NetconfException {
         return new MockNetconfDevice(netconfDeviceInfo);
     }
 

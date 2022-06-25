@@ -132,7 +132,7 @@ public class NetconfControllerImplTest {
     @Before
     public void setUp() throws Exception {
         ctrl = new NetconfControllerImpl();
-        ctrl.deviceFactory = (ncDevInfo) -> new TestNetconfDevice(ncDevInfo);
+        ctrl.deviceFactory = (ncDevInfo, isMaster) -> new TestNetconfDevice(ncDevInfo);
         ctrl.cfgService = cfgService;
         ctrl.deviceService = deviceService;
         ctrl.deviceKeyService = deviceKeyService;
