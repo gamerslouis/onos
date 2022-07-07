@@ -24,6 +24,8 @@ import com.google.common.collect.Lists;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.netconf.callhome.NetconfCallHomeController;
+import org.onosproject.netconf.callhome.NetconfCallHomeDeviceConfig;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -106,16 +108,36 @@ import static org.onosproject.netconf.NetconfDeviceInfo.extractIpPortPath;
         })
 public class NetconfControllerImpl implements NetconfController {
 
-    /** Time (in seconds) to wait for a NETCONF connect. */
+    /**
+     * Time (in seconds) to wait for a NETCONF connect.
+     */
     protected static int netconfConnectTimeout = NETCONF_CONNECT_TIMEOUT_DEFAULT;
 
-    /** Time (in seconds) waiting for a NetConf reply. */
+    /**
+     * Time (in seconds) waiting for a NetConf reply.
+     */
     protected static int netconfReplyTimeout = NETCONF_REPLY_TIMEOUT_DEFAULT;
 
-    /** Time (in seconds) SSH session will close if no traffic seen. */
+    /**
+     * Time (in seconds) SSH session will close if no traffic seen.
+     */
     protected static int netconfIdleTimeout = NETCONF_IDLE_TIMEOUT_DEFAULT;
 
-    /** SSH client library to use. */
+    public static int getNetconfConnectTimeout() {
+        return netconfConnectTimeout;
+    }
+
+    public static int getNetconfReplyTimeout() {
+        return netconfReplyTimeout;
+    }
+
+    public static int getNetconfIdleTimeout() {
+        return netconfIdleTimeout;
+    }
+
+    /**
+     * SSH client library to use.
+     */
     protected static String sshLibrary = SSH_LIBRARY_DEFAULT;
 
     protected NetconfSshClientLib sshClientLib = NetconfSshClientLib.APACHE_MINA;
@@ -153,6 +175,9 @@ public class NetconfControllerImpl implements NetconfController {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected ClusterService clusterService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected NetconfCallHomeController netconfCallHomeController;
 
     public static final Logger log = LoggerFactory
             .getLogger(NetconfControllerImpl.class);
@@ -316,8 +341,8 @@ public class NetconfControllerImpl implements NetconfController {
     @Override
     public NetconfDevice getNetconfDevice(IpAddress ip, int port, String path) {
         return getNetconfDevice(DeviceId.deviceId(
-                    String.format("netconf:%s:%d%s",
-                        ip.toString(), port, (path != null && !path.isEmpty() ? "/" + path : ""))));
+                String.format("netconf:%s:%d%s",
+                              ip.toString(), port, (path != null && !path.isEmpty() ? "/" + path : ""))));
     }
 
     @Override
@@ -332,7 +357,7 @@ public class NetconfControllerImpl implements NetconfController {
 
     @Override
     public NetconfDevice connectDevice(DeviceId deviceId, boolean isMaster) throws NetconfException {
-        NetconfDeviceConfig netCfg  = netCfgService.getConfig(
+        NetconfDeviceConfig netCfg = netCfgService.getConfig(
                 deviceId, NetconfDeviceConfig.class);
         NetconfDeviceInfo deviceInfo = null;
 
@@ -367,12 +392,16 @@ public class NetconfControllerImpl implements NetconfController {
                 }
             }
 
-            if (netCfg != null) {
+            if (netconfCallHomeController.isCallHomeDeviceId(deviceId)) {
+                // Always create call home device info from call home controller.
+                deviceInfo = netconfCallHomeController.createDeviceInfo(deviceId, isMaster);
+            } else if (netCfg != null) {
                 log.debug("Device {} is present in NetworkConfig", deviceId);
-                deviceInfo = new NetconfDeviceInfo(netCfg);
+                deviceInfo = new NetconfDeviceInfo(deviceId, netCfg);
             } else {
                 log.debug("Creating NETCONF device {}", deviceId);
                 deviceInfo = createDeviceInfo(deviceId);
+
             }
             NetconfDevice netconfDevice = createDevice(deviceInfo, isMaster);
             if (isMaster) {
@@ -391,48 +420,48 @@ public class NetconfControllerImpl implements NetconfController {
     }
 
     private NetconfDeviceInfo createDeviceInfo(DeviceId deviceId) throws NetconfException {
-            Device device = deviceService.getDevice(deviceId);
-            String ip, path = null;
-            int port;
-            if (device != null) {
-                ip = device.annotations().value("ipaddress");
-                port = Integer.parseInt(device.annotations().value("port"));
+        Device device = deviceService.getDevice(deviceId);
+        String ip, path = null;
+        int port;
+        if (device != null) {
+            ip = device.annotations().value("ipaddress");
+            port = Integer.parseInt(device.annotations().value("port"));
+        } else {
+            Triple<String, Integer, Optional<String>> info = extractIpPortPath(deviceId);
+            ip = info.getLeft();
+            port = info.getMiddle();
+            path = (info.getRight().isPresent() ? info.getRight().get() : null);
+        }
+        try {
+            DeviceKey deviceKey = deviceKeyService.getDeviceKey(
+                    DeviceKeyId.deviceKeyId(deviceId.toString()));
+            if (deviceKey.type() == DeviceKey.Type.USERNAME_PASSWORD) {
+                UsernamePassword usernamepasswd = deviceKey.asUsernamePassword();
+
+                return new NetconfDeviceInfo(deviceId, usernamepasswd.username(),
+                                             usernamepasswd.password(),
+                                             IpAddress.valueOf(ip),
+                                             port,
+                                             path);
+
+            } else if (deviceKey.type() == DeviceKey.Type.SSL_KEY) {
+                String username = deviceKey.annotations().value(AnnotationKeys.USERNAME);
+                String password = deviceKey.annotations().value(AnnotationKeys.PASSWORD);
+                String sshkey = deviceKey.annotations().value(AnnotationKeys.SSHKEY);
+
+                return new NetconfDeviceInfo(deviceId, username,
+                                             password,
+                                             IpAddress.valueOf(ip),
+                                             port,
+                                             path,
+                                             sshkey);
             } else {
-                Triple<String, Integer, Optional<String>> info = extractIpPortPath(deviceId);
-                ip = info.getLeft();
-                port = info.getMiddle();
-                path = (info.getRight().isPresent() ? info.getRight().get() : null);
+                log.error("Unknown device key for device {}", deviceId);
+                throw new NetconfException("Unknown device key for device " + deviceId);
             }
-            try {
-                DeviceKey deviceKey = deviceKeyService.getDeviceKey(
-                        DeviceKeyId.deviceKeyId(deviceId.toString()));
-                if (deviceKey.type() == DeviceKey.Type.USERNAME_PASSWORD) {
-                    UsernamePassword usernamepasswd = deviceKey.asUsernamePassword();
-
-                    return new NetconfDeviceInfo(usernamepasswd.username(),
-                                                       usernamepasswd.password(),
-                                                       IpAddress.valueOf(ip),
-                                                       port,
-                                                       path);
-
-                } else if (deviceKey.type() == DeviceKey.Type.SSL_KEY) {
-                    String username = deviceKey.annotations().value(AnnotationKeys.USERNAME);
-                    String password = deviceKey.annotations().value(AnnotationKeys.PASSWORD);
-                    String sshkey = deviceKey.annotations().value(AnnotationKeys.SSHKEY);
-
-                    return new NetconfDeviceInfo(username,
-                                                       password,
-                                                       IpAddress.valueOf(ip),
-                                                       port,
-                                                       path,
-                                                       sshkey);
-                } else {
-                    log.error("Unknown device key for device {}", deviceId);
-                    throw new NetconfException("Unknown device key for device " + deviceId);
-                }
-            } catch (NullPointerException e) {
-                log.error("No Device Key for device {}, {}", deviceId, e);
-                throw new NetconfException("No Device Key for device " + deviceId, e);
+        } catch (NullPointerException e) {
+            log.error("No Device Key for device {}, {}", deviceId, e);
+            throw new NetconfException("No Device Key for device " + deviceId, e);
         }
     }
 
@@ -735,7 +764,6 @@ public class NetconfControllerImpl implements NetconfController {
 
     /**
      * Device factory for the specific NetconfDeviceImpl.
-     *
      */
     private class DefaultNetconfDeviceFactory implements NetconfDeviceFactory {
         @Override
@@ -746,9 +774,15 @@ public class NetconfControllerImpl implements NetconfController {
             try {
                 // will block until hello RPC handshake completes
                 if (isMaster) {
-                    log.info("Creating NETCONF session to {} with {}",
-                             netconfDeviceInfo.getDeviceId(), NetconfSshClientLib.APACHE_MINA);
-                    netconfSession = new NetconfSessionMinaImpl(netconfDeviceInfo);
+                    // if call home device, request session from call home manager
+                    if (netconfCallHomeController.isCallHomeDeviceId(netconfDeviceInfo.getDeviceId())) {
+                        netconfSession = netconfCallHomeController.createNetconfSession(netconfDeviceInfo);
+                    } else {
+                        log.info("Creating NETCONF session to {} with {}",
+                                 netconfDeviceInfo.getDeviceId(), NetconfSshClientLib.APACHE_MINA);
+                        netconfSession = new NetconfSessionMinaImpl(netconfDeviceInfo);
+                    }
+
                 } else {
                     netconfSession = new NetconfSessionProxyImpl(
                             netconfDeviceInfo,
@@ -776,6 +810,12 @@ public class NetconfControllerImpl implements NetconfController {
                     !mastershipService.isLocalMaster(did)) {
                 removeDevice(did);
             } else if (event.type().equals(NetconfDeviceOutputEvent.Type.SESSION_CLOSED)) {
+                // For call home session, reopen connection is impossible, so just remove the device
+                if (netconfCallHomeController.isCallHomeDeviceId(did)) {
+                    removeDevice(did);
+                    return;
+                }
+
                 log.info("Trying to reestablish connection with device {}", did);
                 executor.execute(() -> {
                     try {
@@ -789,8 +829,8 @@ public class NetconfControllerImpl implements NetconfController {
 
                     } catch (NetconfException e) {
                         log.error("The SSH connection with device {} couldn't be " +
-                                "reestablished due to {}. " +
-                                "Marking the device as unreachable", did, e.getMessage());
+                                          "reestablished due to {}. " +
+                                          "Marking the device as unreachable", did, e.getMessage());
                         log.debug("Complete exception: ", e);
                         removeDevice(did);
                     }

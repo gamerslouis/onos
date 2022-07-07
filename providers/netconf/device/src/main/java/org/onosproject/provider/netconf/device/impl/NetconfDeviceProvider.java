@@ -66,6 +66,9 @@ import org.onosproject.netconf.NetconfDevice;
 import org.onosproject.netconf.NetconfDeviceInfo;
 import org.onosproject.netconf.NetconfDeviceListener;
 import org.onosproject.netconf.NetconfException;
+import org.onosproject.netconf.callhome.CallHomeSSHSession;
+import org.onosproject.netconf.callhome.NetconfCallHomeController;
+import org.onosproject.netconf.callhome.NetconfCallHomeSSHListener;
 import org.onosproject.netconf.config.NetconfDeviceConfig;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -125,6 +128,9 @@ public class NetconfDeviceProvider extends AbstractProvider
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected NetconfController controller;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected NetconfCallHomeController callHomeController;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected NetworkConfigRegistry cfgService;
@@ -194,6 +200,7 @@ public class NetconfDeviceProvider extends AbstractProvider
     protected final NetworkConfigListener cfgListener = new InternalNetworkConfigListener();
     private NetconfDeviceListener innerNodeListener = new InnerNetconfDeviceListener();
     private InternalDeviceListener deviceListener = new InternalDeviceListener();
+    private InnerNetconfCallhomeListener callhomeListener = new InnerNetconfCallhomeListener();
     private boolean active;
 
     private ForkJoinPool scheduledTaskPool = new ForkJoinPool(CORE_POOL_SIZE);
@@ -207,6 +214,7 @@ public class NetconfDeviceProvider extends AbstractProvider
         cfgService.registerConfigFactory(factory);
         cfgService.addListener(cfgListener);
         controller.addDeviceListener(innerNodeListener);
+        callHomeController.addListener(callhomeListener);
         deviceService.addListener(deviceListener);
         pollingExecutor.execute(NetconfDeviceProvider.this::connectDevices);
         scheduledTask = schedulePolling();
@@ -225,6 +233,7 @@ public class NetconfDeviceProvider extends AbstractProvider
             deviceKeyAdminService.removeKey(DeviceKeyId.deviceKeyId(id.toString()));
             controller.disconnectDevice(id, true);
         });
+        callHomeController.removeListener(callhomeListener);
         controller.removeDeviceListener(innerNodeListener);
         providerRegistry.unregister(this);
         providerService = null;
@@ -303,6 +312,11 @@ public class NetconfDeviceProvider extends AbstractProvider
 
     @Override
     public boolean isReachable(DeviceId deviceId) {
+        // For call home session, only check if ssh session exist, no tcp connect test
+        if(callHomeController.isCallHomeDeviceId(deviceId)) {
+            return callHomeController.getSessionMap().get(deviceId) != null;
+        }
+
         boolean sessionExists =
                 Optional.ofNullable(controller.getDevicesMap().get(deviceId))
                         .map(NetconfDevice::isActive)
@@ -567,6 +581,9 @@ public class NetconfDeviceProvider extends AbstractProvider
         if (deviceInfo.path().isPresent()) {
             annotations.set(PATH, deviceInfo.path().get());
         }
+        if(callHomeController.isCallHomeDeviceId(deviceId)) {
+            annotations.set("callhome", "true");
+        }
         return new DefaultDeviceDescription(deviceId.uri(), Device.Type.SWITCH,
                 UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, cid, true, annotations.build());
     }
@@ -671,6 +688,17 @@ public class NetconfDeviceProvider extends AbstractProvider
                 log.warn("Netconf device {} does not exist in the store, " +
                         "it may already have been removed", deviceId);
             }
+        }
+    }
+
+    /**
+     * Listener for Netconf CallHome Session Events.
+     */
+    private class InnerNetconfCallhomeListener implements NetconfCallHomeSSHListener {
+        @Override
+        public void sessionCreated(CallHomeSSHSession session) {
+            connectionExecutor.execute(exceptionSafe(() ->
+                     runElectionFor(DeviceId.deviceId(session.getSessionId()))));
         }
     }
 

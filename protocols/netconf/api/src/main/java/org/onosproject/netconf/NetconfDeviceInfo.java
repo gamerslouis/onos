@@ -56,17 +56,20 @@ public class NetconfDeviceInfo {
     /**
      * Information for contacting the controller.
      *
+     * @param deviceId  the device id
      * @param name      the connection type
      * @param password  the password for the device
      * @param ipAddress the ip address
      * @param port      the tcp port
      * @param path      the path part
      */
-    public NetconfDeviceInfo(String name, String password, IpAddress ipAddress,
+    public NetconfDeviceInfo(DeviceId deviceId, String name, String password, IpAddress ipAddress,
                              int port, String path) {
+        checkNotNull(deviceId, "deviceId cannot be null");
         checkArgument(!name.equals(""), "Empty device username");
         checkArgument(port > 0, "Negative port");
         checkNotNull(ipAddress, "Null ip address");
+        this.deviceId = deviceId;
         this.name = name;
         this.password = password;
         this.ipAddress = ipAddress;
@@ -85,19 +88,21 @@ public class NetconfDeviceInfo {
     /**
      * Information for contacting the controller.
      *
+     * @param deviceId  the device id
      * @param name      the connection type
      * @param password  the password for the device
      * @param ipAddress the ip address
      * @param port      the tcp port
      */
-    public NetconfDeviceInfo(String name, String password, IpAddress ipAddress,
+    public NetconfDeviceInfo(DeviceId deviceId, String name, String password, IpAddress ipAddress,
                              int port) {
-        this(name, password, ipAddress, port, null);
+        this(deviceId, name, password, ipAddress, port, null);
     }
 
     /**
      * Information for contacting the controller.
      *
+     * @param deviceId  the device id
      * @param name      the connection type
      * @param password  the password for the device
      * @param ipAddress the ip address
@@ -106,11 +111,13 @@ public class NetconfDeviceInfo {
      * @param keyString the string containing a DSA or RSA private key
      *                  of the user in OpenSSH key format
      */
-    public NetconfDeviceInfo(String name, String password, IpAddress ipAddress,
+    public NetconfDeviceInfo(DeviceId deviceId, String name, String password, IpAddress ipAddress,
                              int port, String path, String keyString) {
+        checkNotNull(deviceId, "deviceId cannot be null");
         checkArgument(!name.equals(""), "Empty device name");
         checkArgument(port > 0, "Negative port");
         checkNotNull(ipAddress, "Null ip address");
+        this.deviceId = deviceId;
         this.name = name;
         this.password = password;
         this.ipAddress = ipAddress;
@@ -125,13 +132,16 @@ public class NetconfDeviceInfo {
 
     /**
      * Convenieince constructor that converts all known fields from NetCfg data.
+     * @param deviceId  the device id
      * @param netconfConfig NetCf configuration
      */
-    public NetconfDeviceInfo(NetconfDeviceConfig netconfConfig) {
+    public NetconfDeviceInfo(DeviceId deviceId, NetconfDeviceConfig netconfConfig) {
+        checkNotNull(deviceId, "deviceId cannot be null");
         checkArgument(!netconfConfig.username().isEmpty(), "Empty device name");
         checkArgument(netconfConfig.port() > 0, "Negative port");
         checkNotNull(netconfConfig.ip(), "Null ip address");
 
+        this.deviceId = deviceId;
         this.name = netconfConfig.username();
         this.password = netconfConfig.password();
         this.ipAddress = netconfConfig.ip();
