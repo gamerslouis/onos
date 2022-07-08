@@ -19,32 +19,46 @@ package org.onosproject.netconf.callhome;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.Strings;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.onlab.packet.IpAddress;
 import org.onosproject.net.DeviceId;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Objects;
 
 public class CallHomeConfigBuilder {
     private String ip;
     private Integer port;
-    private String path;
+    private String path = null;
     private String serverKey;
     private String username;
-    private String password;
-    private String sshKey;
+    private String password = null;
+    private String sshKey = null;
+
+    private String driver;
+
     private Integer connectTimeout = null;
     private Integer replyTimeout = null;
     private Integer idleTimeout = null;
 
-    private CallHomeConfigBuilder(IpAddress fakeIp, String serverKey, String username) {
+    private CallHomeConfigBuilder(IpAddress fakeIp, Integer fakePort, String serverKey, String username, String driver) {
+        checkNotNull(fakeIp, "ip address cannot be null");
+        checkNotNull(fakePort, "port cannot be null");
+        checkNotNull(serverKey, "server key cannot be null");
+        checkNotNull(username, "username cannot be null");
+        checkNotNull(driver, "driver cannot be null");
+
         ip = fakeIp.toString();
+        port = fakePort;
         this.serverKey = serverKey;
         this.username = username;
+        this.driver = driver;
     }
 
-    public static CallHomeConfigBuilder builder(IpAddress fakeIp, String serverKey, String username) {
-        return new CallHomeConfigBuilder(fakeIp, serverKey, username);
+    public static CallHomeConfigBuilder builder(IpAddress fakeIp, Integer fakePort, String serverKey, String username, String driver) {
+        return new CallHomeConfigBuilder(fakeIp, fakePort, serverKey, username, driver);
     }
 
     public String getIp() {
@@ -110,6 +124,15 @@ public class CallHomeConfigBuilder {
         return this;
     }
 
+    public String getDriver() {
+        return driver;
+    }
+
+    public CallHomeConfigBuilder setDriver(String driver) {
+        this.driver = driver;
+        return this;
+    }
+
     public Integer getConnectTimeout() {
         return connectTimeout;
     }
@@ -136,7 +159,7 @@ public class CallHomeConfigBuilder {
         this.idleTimeout = idleTimeout;
     }
 
-    public Pair<DeviceId, JsonNode> build() {
+    public Triple<DeviceId, JsonNode, JsonNode> build() {
         JsonNodeFactory jsonNodeFactory = JsonNodeFactory.instance;
         ObjectNode conf = jsonNodeFactory.objectNode();
         conf.put(NetconfCallHomeDeviceConfig.SERVER_KEY, serverKey);
@@ -151,26 +174,30 @@ public class CallHomeConfigBuilder {
         if (idleTimeout != null) {
             conf.put(NetconfCallHomeDeviceConfig.IDLE_TIMEOUT, idleTimeout);
         }
-        if (!Objects.equals(password, "")) {
+        if (!Strings.isNullOrEmpty(password)) {
             conf.put(NetconfCallHomeDeviceConfig.PASSWORD, password);
         }
-        if (!Objects.equals(sshKey, "")) {
+        if (!Strings.isNullOrEmpty(sshKey)) {
             conf.put(NetconfCallHomeDeviceConfig.SSHKEY, sshKey);
         }
-        if (!Objects.equals(path, "")) {
+        if (!Strings.isNullOrEmpty(path)) {
             conf.put(NetconfCallHomeDeviceConfig.PATH, path);
         }
-        String id = "netconf-ch:" + ip;
+        String id = "netconf:" + ip;
         if (port != null) {
             id += ":" + port;
         }
-        if (!Objects.equals(path, "")) {
+        if (!Strings.isNullOrEmpty(path)) {
             id += "/" + path;
         }
 
-        return Pair.of(
+        ObjectNode basic = jsonNodeFactory.objectNode();
+        basic.put("driver", driver);
+
+        return Triple.of(
                 DeviceId.deviceId(id),
-                conf
+                conf,
+                basic
         );
     }
 }

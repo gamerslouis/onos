@@ -1,8 +1,6 @@
 package org.onosproject.netconf.ctl.impl.callhome;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.sshd.client.session.ClientSession;
@@ -12,10 +10,12 @@ import org.onlab.packet.IpAddress;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.config.Config;
 import org.onosproject.net.config.ConfigFactory;
 import org.onosproject.net.config.NetworkConfigEvent;
 import org.onosproject.net.config.NetworkConfigListener;
 import org.onosproject.net.config.NetworkConfigRegistry;
+import org.onosproject.net.config.basics.BasicDeviceConfig;
 import org.onosproject.net.config.basics.SubjectFactories;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.netconf.NetconfDeviceInfo;
@@ -45,7 +45,6 @@ import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -210,12 +209,12 @@ public class NetconfCallHomeControllerImpl implements NetconfCallHomeController 
                 throw new NetconfException("Create device info on slave fail. No device or config for device " + deviceId);
             }
             NetconfDeviceInfo deviceInfo = new NetconfDeviceInfo(deviceId,
-                                         cfg.username(),
-                                         cfg.password(),
-                                         IpAddress.valueOf(device.annotations().value("ipaddress")),
-                                         Integer.parseInt(device.annotations().value("port")),
-                                         cfg.path().orElse(null),
-                                         cfg.sshKey());
+                                                                 cfg.username(),
+                                                                 cfg.password(),
+                                                                 IpAddress.valueOf(device.annotations().value("ipaddress")),
+                                                                 Integer.parseInt(device.annotations().value("port")),
+                                                                 cfg.path().orElse(null),
+                                                                 cfg.sshKey());
             deviceInfo.setIdleTimeoutSec(cfg.idleTimeout());
             deviceInfo.setConnectTimeoutSec(cfg.connectTimeout());
             deviceInfo.setReplyTimeoutSec(cfg.replyTimeout());
@@ -256,6 +255,18 @@ public class NetconfCallHomeControllerImpl implements NetconfCallHomeController 
     }
 
     @Override
+    public String encodePublicKey(PublicKey key) {
+        try {
+            StringBuilder sb = new StringBuilder(Byte.MAX_VALUE);
+            AuthorizedKeyEntry.appendPublicKeyEntry(sb, key);
+            return sb.toString().strip();
+        } catch (IOException e) {
+            log.warn("Encode key string fail", e);
+            return null;
+        }
+    }
+
+    @Override
     public void addListener(NetconfCallHomeSSHListener listener) {
         listeners.add(listener);
     }
@@ -266,11 +277,15 @@ public class NetconfCallHomeControllerImpl implements NetconfCallHomeController 
     }
 
     @Override
-    public void registerDevice(CallHomeConfigBuilder builder) {
-        Pair<DeviceId, JsonNode> pair = builder.build();
-        cfgService.applyConfig("devices", pair.getLeft(),
-                               "netconf-ch", pair.getRight()
+    public NetconfCallHomeDeviceConfig registerDevice(CallHomeConfigBuilder builder) {
+        Triple<DeviceId, JsonNode, JsonNode> triple = builder.build();
+        NetconfCallHomeDeviceConfig cfg = cfgService.applyConfig("devices", triple.getLeft(),
+                                                                 "netconf-ch", triple.getMiddle()
         );
+        cfgService.applyConfig("devices", triple.getLeft(),
+                               "basic", triple.getRight());
+        return cfg;
+
     }
 
     @Override
@@ -311,38 +326,6 @@ public class NetconfCallHomeControllerImpl implements NetconfCallHomeController 
             String sessionId = context.getSessionId();
             log.debug("Auth for {} completed, start to trigger device discovery.", sessionId);
 
-            NetconfCallHomeDeviceConfig config = cfgService.getConfig(DeviceId.deviceId(sessionId), NetconfCallHomeDeviceConfig.class);
-            if (config == null) {
-                log.error("Network cfg for {} not found, cancel device discovery", sessionId);
-                return;
-            }
-
-            JsonNodeFactory jsonNodeFactory = JsonNodeFactory.instance;
-            ObjectNode conf = jsonNodeFactory.objectNode();
-            conf.put("username", context.getSSHUsername());
-            conf.put("ip", context.getRemoteAddress().getAddress().getHostAddress());
-            conf.put("port", context.getRemoteAddress().getPort());
-
-            if (config.connectTimeout().isPresent()) {
-                conf.put(NetconfCallHomeDeviceConfig.CONNECT_TIMEOUT, config.connectTimeout().getAsInt());
-            }
-            if (config.replyTimeout().isPresent()) {
-                conf.put(NetconfCallHomeDeviceConfig.REPLY_TIMEOUT, config.replyTimeout().getAsInt());
-            }
-            if (config.idleTimeout().isPresent()) {
-                conf.put(NetconfCallHomeDeviceConfig.IDLE_TIMEOUT, config.idleTimeout().getAsInt());
-            }
-            if (!Objects.equals(config.password(), "")) {
-                conf.put(NetconfCallHomeDeviceConfig.PASSWORD, config.password());
-            }
-            if (!Objects.equals(config.sshKey(), "")) {
-                conf.put(NetconfCallHomeDeviceConfig.SSHKEY, config.sshKey());
-            }
-            if (config.path().isPresent()) {
-                conf.put(NetconfCallHomeDeviceConfig.PATH, config.path().get());
-            }
-            cfgService.applyConfig("devices", DeviceId.deviceId(sessionId), "netconf", conf);
-
             for (NetconfCallHomeSSHListener l : listeners) {
                 l.sessionCreated(context);
             }
@@ -361,10 +344,7 @@ public class NetconfCallHomeControllerImpl implements NetconfCallHomeController 
                 for (NetconfCallHomeSSHListener l : listeners) {
                     CallHomeConfigBuilder builder = l.sessionAuthFailed(serverKey, (InetSocketAddress) remoteAddress);
                     if (builder != null) {
-                        Pair<DeviceId, JsonNode> newConfig = builder.build();
-                        NetconfCallHomeDeviceConfig cfg = cfgService.applyConfig("devices", newConfig.getLeft(),
-                                                                                               "netconf-ch", newConfig.getRight()
-                        );
+                        NetconfCallHomeDeviceConfig cfg = registerDevice(builder);
                         return CallHomeAuthorization.serverAccepted(cfg.subject().toString(), cfg);
                     }
                 }

@@ -18,7 +18,6 @@ package org.onosproject.netconf.callhome;
 
 import java.security.PublicKey;
 import java.util.Map;
-import java.util.Optional;
 
 import org.onosproject.net.DeviceId;
 import org.onosproject.netconf.NetconfDeviceInfo;
@@ -38,11 +37,13 @@ public interface NetconfCallHomeController {
 
     PublicKey decodePublicKeyString(String key);
 
+    String encodePublicKey(PublicKey key);
+
     void addListener(NetconfCallHomeSSHListener listener);
 
     void removeListener(NetconfCallHomeSSHListener listener);
 
-    void registerDevice(CallHomeConfigBuilder builder);
+    NetconfCallHomeDeviceConfig registerDevice(CallHomeConfigBuilder builder);
 
     void unregisterDevice(DeviceId deviceId);
 }

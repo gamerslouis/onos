@@ -278,6 +278,7 @@ APP_MAP = {
     "//apps/powermanagement:onos-apps-powermanagement-oar": [],
     "//apps/proxyarp:onos-apps-proxyarp-oar": [],
     "//apps/rabbitmq:onos-apps-rabbitmq-oar": [],
+    "//apps/reactive-callhome:onos-apps-reactive-callhome-oar": [],
     "//apps/reactive-routing:onos-apps-reactive-routing-oar": [],
     "//apps/restconf:onos-apps-restconf-oar": [],
     "//apps/roadm:onos-apps-roadm-oar": [],

@@ -75,13 +75,7 @@ class CallHomeSSHSessionImpl implements CallHomeSSHSession {
         if (!Objects.equals(clientKey, "")) {
             sshSession.addPublicKeyIdentity(decodeKeyPair(clientKey));
         }
-        AuthFuture authFuture = sshSession.auth();
-        int connectTimeout = getConfig().connectTimeout().orElse(
-                NetconfControllerImpl.getNetconfConnectTimeout()
-        );
-        authFuture.verify(connectTimeout, TimeUnit.SECONDS);
-
-        return authFuture;
+        return sshSession.auth();
     }
 
     private KeyPair decodeKeyPair(String key) {
