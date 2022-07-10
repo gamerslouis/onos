@@ -1,6 +1,7 @@
 package org.onosproject.netconf.callhome.restapi;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.glassfish.jersey.server.ChunkedOutput;
 import org.onosproject.rest.AbstractWebResource;
@@ -39,7 +40,7 @@ public class RestAPIManager extends AbstractWebResource {
 
     private static final String JSON_INVALID = "Invalid JSON input";
     private static final Logger log = org.slf4j.LoggerFactory.getLogger(RestAPIManager.class);
-
+    private final ObjectNode root = mapper().createObjectNode();
 
     /**
      * Perform a operation to specified device.
@@ -56,7 +57,7 @@ public class RestAPIManager extends AbstractWebResource {
     @Path("data/{device}")
     public Response createData(@PathParam("device") String device, InputStream stream) {
         try {
-            ObjectNode json = readTreeFromStream(stream);
+            ObjectNode json = readTreeFromStream(mapper(), stream);
             log.info("Received data: {}", json);
             this.validateJson(json);
             return Response.status(OK).build();
