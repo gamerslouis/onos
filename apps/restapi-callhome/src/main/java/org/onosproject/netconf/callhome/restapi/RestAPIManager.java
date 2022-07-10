@@ -4,11 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.glassfish.jersey.server.ChunkedOutput;
 import org.onosproject.rest.AbstractWebResource;
-import org.onosproject.restconf.api.MediaTypeRestconf;
 
 import org.slf4j.Logger;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -60,7 +58,7 @@ public class RestAPIManager extends AbstractWebResource {
         try {
             ObjectNode json = readTreeFromStream(stream);
             log.info("Received data: {}", json);
-            this.validateJson();
+            this.validateJson(json);
             return Response.status(OK).build();
         } catch (IOException e) {
             log.error("Failed to parse JSON", e);
@@ -71,7 +69,7 @@ public class RestAPIManager extends AbstractWebResource {
 
 
     private Boolean validateJson(ObjectNode input) {
-        JsonNode content = intput.path("content");
+        JsonNode content = input.path("content");
 
         if (content == null || content.asText() == "") {
             throw new IllegalArgumentException(JSON_INVALID);
