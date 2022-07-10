@@ -5,10 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.glassfish.jersey.server.ChunkedOutput;
 import org.onosproject.rest.AbstractWebResource;
 import org.onosproject.restconf.api.MediaTypeRestconf;
-import org.onosproject.restconf.api.RestconfError;
-import org.onosproject.restconf.api.RestconfException;
-import org.onosproject.restconf.api.RestconfRpcOutput;
-import org.onosproject.restconf.api.RestconfService;
+
 import org.slf4j.Logger;
 
 import javax.servlet.http.HttpServletRequest;
