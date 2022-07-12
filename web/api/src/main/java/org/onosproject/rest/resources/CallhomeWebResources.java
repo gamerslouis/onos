@@ -40,7 +40,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class CallhomeWebResources extends AbstractWebResource {
 
     private static final String JSON_INVALID = "Invalid JSON input";
-    //private static final Logger log = org.slf4j.LoggerFactory.getLogger(CallhomeWebResources.class);
+    private static final Logger log = org.slf4j.LoggerFactory.getLogger(CallhomeWebResources.class);
     private final ObjectNode root = mapper().createObjectNode();
 
     /**
