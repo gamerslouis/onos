@@ -7,7 +7,7 @@
   "properties": {
     "content": {
       "type": "string",
-      "example": "<xml>hihi I'm xml</xml>"
+      "example": "<xml>hihi I am xml</xml>"
     }
   }
 }
