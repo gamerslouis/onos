@@ -43,7 +43,7 @@ public class CallhomeWebResources extends AbstractWebResource {
     private UriInfo uriInfo;
 
     private static final String JSON_INVALID = "Invalid JSON input";
-    private static final Logger log = org.slf4j.LoggerFactory.getLogger(CallhomeWebResources.class);
+    private final Logger log = getLogger(getClass());
     private final ObjectNode root = mapper().createObjectNode();
 
     /**
@@ -60,6 +60,7 @@ public class CallhomeWebResources extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("data/{device}")
     public Response createData(@PathParam("device") String device, InputStream stream) {
+        log.debug("Got input: {}", device);
         try {
             ObjectNode json = readTreeFromStream(mapper(), stream);
             log.info("Received data: {}", json);
