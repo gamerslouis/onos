@@ -44,13 +44,13 @@ public class CallhomeWebResources extends AbstractWebResource {
     private final ObjectNode root = mapper().createObjectNode();
 
     /**
-     * Perform a operation to specified device.
+     * Perform a operation onto specified device.
      *
      * @param device   device identifier
      * @param stream   operation JSON
      * @return status of the request - CREATED if the JSON is correct,
      * BAD_REQUEST if the JSON is invalid
-     * @onos.rsModel Operation
+     * @onos.rsModel Callhome
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
