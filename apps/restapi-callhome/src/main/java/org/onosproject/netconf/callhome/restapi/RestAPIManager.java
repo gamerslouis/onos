@@ -3,7 +3,6 @@ package org.onosproject.netconf.callhome.restapi;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.glassfish.jersey.server.ChunkedOutput;
 import org.onosproject.rest.AbstractWebResource;
 
 import org.slf4j.Logger;
@@ -69,7 +68,7 @@ public class RestAPIManager extends AbstractWebResource {
 
 
 
-    private Boolean validateJson(ObjectNode input) {
+    private void validateJson(ObjectNode input) {
         JsonNode content = input.path("content");
 
         if (content == null || content.asText() == "") {
