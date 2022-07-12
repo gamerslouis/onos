@@ -34,7 +34,7 @@ import static org.onlab.util.Tools.readTreeFromStream;
 import static org.slf4j.LoggerFactory.getLogger;
 
 
-@Path("/restnetconf")
+@Path("restnetconf")
 public class RestAPIManager extends AbstractWebResource {
 
     private static final String JSON_INVALID = "Invalid JSON input";
