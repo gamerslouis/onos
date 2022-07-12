@@ -33,11 +33,14 @@ import static javax.ws.rs.core.Response.Status.OK;
 import static org.onlab.util.Tools.readTreeFromStream;
 import static org.slf4j.LoggerFactory.getLogger;
 
-/*
+/**
  * Manage Callhome Device Configuration
  */
 @Path("restnetconf")
 public class CallhomeWebResources extends AbstractWebResource {
+
+    @Context
+    private UriInfo uriInfo;
 
     private static final String JSON_INVALID = "Invalid JSON input";
     private static final Logger log = org.slf4j.LoggerFactory.getLogger(CallhomeWebResources.class);
