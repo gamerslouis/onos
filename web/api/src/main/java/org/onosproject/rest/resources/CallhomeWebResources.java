@@ -50,7 +50,7 @@ public class CallhomeWebResources extends AbstractWebResource {
      * @param stream   operation JSON
      * @return status of the request - CREATED if the JSON is correct,
      * BAD_REQUEST if the JSON is invalid
-     *
+     * @onos.rsModel Operation
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
