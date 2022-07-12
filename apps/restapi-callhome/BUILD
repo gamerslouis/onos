@@ -3,7 +3,8 @@ APPS = [
     "org.onosproject.drivers.netconf",
 ]
 
-COMPILE_DEPS = CORE_DEPS + [
+COMPILE_DEPS = CORE_DEPS + JACKSON + [
+    "@javax_ws_rs_api//jar",
     "//protocols/netconf/api:onos-protocols-netconf-api",
 ]
 
