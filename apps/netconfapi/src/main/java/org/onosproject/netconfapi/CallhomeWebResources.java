@@ -86,7 +86,7 @@ public class CallhomeWebResources extends AbstractWebResource {
             //return Response.status(OK).build();
 
             if (nfd != null) {
-                CompleatableFuture<String> operation = nfd.getSession().rpc(json.path("content").asText());
+                CompletableFuture<String> operation = nfd.getSession().rpc(json.path("content").asText());
 
                 return operation.handle((response, error) -> {
                     if (error != null) {
