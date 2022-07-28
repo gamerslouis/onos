@@ -1,9 +1,15 @@
-package org.onosproject.rest.resources;
+package org.onosproject.netconfapi;
+
+import org.onosproject.netconf.NetconfController;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.onosproject.rest.AbstractWebResource;
+import org.onosproject.netconf.NetconfDevice;
+
+import org.onosproject.net.DeviceId;
 
 import org.slf4j.Logger;
 
@@ -24,11 +30,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import static javax.ws.rs.core.Response.Status.CREATED;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.onlab.util.Tools.readTreeFromStream;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -36,7 +44,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 /**
  * Manage Callhome Device Configuration
  */
-@Path("restnetconf")
+@Path("/")
 public class CallhomeWebResources extends AbstractWebResource {
 
     @Context
@@ -45,6 +53,10 @@ public class CallhomeWebResources extends AbstractWebResource {
     private static final String JSON_INVALID = "Invalid JSON input";
     private final Logger log = getLogger(getClass());
     private final ObjectNode root = mapper().createObjectNode();
+
+    //private final CallhomeRestconfService crs = get(CallhomeRestconfService.class);
+    private final NetconfController nfc = get(NetconfController.class);
+    
 
     /**
      * Perform a operation onto specified device.
@@ -60,12 +72,36 @@ public class CallhomeWebResources extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("data/{device}")
     public Response createData(@PathParam("device") String device, InputStream stream) {
-        log.debug("Got input: {}", device);
+
         try {
             ObjectNode json = readTreeFromStream(mapper(), stream);
             log.info("Received data: {}", json);
+            log.info("Target Device: {}", device);
             this.validateJson(json);
-            return Response.status(OK).build();
+
+            NetconfDevice nfd = nfc.getDevicesMap().get(DeviceId.deviceId(device));
+
+            log.info(json.path("content").asText());
+
+            //return Response.status(OK).build();
+
+            if (nfd != null) {
+                CompleatableFuture<String> operation = nfd.getSession().rpc(json.path("content").asText());
+
+                return operation.handle((response, error) -> {
+                    if (error != null) {
+                        return Response.status(BAD_REQUEST).build();
+                    }
+                    else {
+                        return Response.status(OK).build();
+                    }
+                });
+
+            }
+            else {
+                return Response.status(NOT_FOUND).build();
+            }
+
         } catch (IOException e) {
             log.error("Failed to parse JSON", e);
             return Response.status(BAD_REQUEST).build();

@@ -56,8 +56,7 @@ public class CoreWebApplication extends AbstractWebApplication {
                 SystemInfoWebResource.class,
                 PacketProcessorsWebResource.class,
                 AuditFilter.class,
-                ModulationWebResource.class,
-                CallhomeWebResources.class
+                ModulationWebResource.class
         );
     }
 }
