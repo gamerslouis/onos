@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.onosproject.rest.AbstractWebResource;
+import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.NetconfDevice;
 
 import org.onosproject.net.DeviceId;
@@ -32,6 +33,9 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
 
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
@@ -71,44 +75,39 @@ public class CallhomeWebResources extends AbstractWebResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @Path("data/{device}")
-    public Response createData(@PathParam("device") String device, InputStream stream) {
+    public void createData(@PathParam("device") String device, InputStream stream, @Suspended AsyncResponse response) {
+        
+
 
         try {
-            ObjectNode json = readTreeFromStream(mapper(), stream);
-            log.info("Received data: {}", json);
+            ObjectNode theJsonContent = readTreeFromStream(mapper(), stream);
+
+            this.validateJson(theJsonContent);
+
+            log.info("Received data: {}", theJsonContent);
             log.info("Target Device: {}", device);
-            this.validateJson(json);
 
             NetconfDevice nfd = nfc.getDevicesMap().get(DeviceId.deviceId(device));
 
-            log.info(json.path("content").asText());
-
-            //return Response.status(OK).build();
-
             if (nfd != null) {
-                CompletableFuture<String> operation = nfd.getSession().rpc(json.path("content").asText());
+                CompletableFuture<String> operation = nfd.getSession().rpc(theJsonContent.path("content").asText());
 
-                return operation.handle((response, error) -> {
-                    if (error != null) {
-                        return Response.status(BAD_REQUEST).build();
-                    }
-                    else {
-                        return Response.status(OK).build();
-                    }
-                });
-
+                operation.join();
+            
+                response.resume(Response.status(OK).build());
             }
             else {
-                return Response.status(NOT_FOUND).build();
+                log.error("Target Device: {} not found.", device);
+                response.resume(Response.status(NOT_FOUND).build());
             }
-
-        } catch (IOException e) {
-            log.error("Failed to parse JSON", e);
-            return Response.status(BAD_REQUEST).build();
+        } catch (NetconfException e)  {
+            log.error("Error at netconf session.");
+            response.resume(Response.status(INTERNAL_SERVER_ERROR));
+        } catch (IllegalArgumentException | IOException e) {
+            log.error("Failed to parse JSON.");
+            response.resume(Response.status(BAD_REQUEST).build());
         }
     }
-
-
 
     private void validateJson(ObjectNode input) {
         JsonNode content = input.path("content");
