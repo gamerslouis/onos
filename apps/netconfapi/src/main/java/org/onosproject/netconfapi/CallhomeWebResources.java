@@ -78,8 +78,6 @@ public class CallhomeWebResources extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("data/{device}")
     public void createData(@PathParam("device") String device, InputStream stream, @Suspended AsyncResponse response) {
-        
-
 
         try {
             ObjectNode theJsonContent = readTreeFromStream(mapper(), stream);
