@@ -75,7 +75,7 @@ public class CallhomeWebResources extends AbstractWebResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @Path("data/{device}")
-    public void createData(@PathParam("device") String device, InputStream stream, @Suspended AsyncResponse response) {
+    public void createData(@PathParam("device") String device, InputStream stream, @Suspended  AsyncResponse response) {
         
 
 
@@ -92,20 +92,20 @@ public class CallhomeWebResources extends AbstractWebResource {
             if (nfd != null) {
                 CompletableFuture<String> operation = nfd.getSession().rpc(theJsonContent.path("content").asText());
 
-                operation.join();
+                String result = operation.join();
             
-                response.resume(Response.status(OK).build());
+                response.resume(Response.status(OK).entity(result).build());
             }
             else {
                 log.error("Target Device: {} not found.", device);
-                response.resume(Response.status(NOT_FOUND).build());
+                response.resume(Response.status(NOT_FOUND).entity("Target device not found.").build());
             }
         } catch (NetconfException e)  {
             log.error("Error at netconf session.");
-            response.resume(Response.status(INTERNAL_SERVER_ERROR));
+            response.resume(Response.status(INTERNAL_SERVER_ERROR).entity(e).build());
         } catch (IllegalArgumentException | IOException e) {
             log.error("Failed to parse JSON.");
-            response.resume(Response.status(BAD_REQUEST).build());
+            response.resume(Response.status(BAD_REQUEST).entity(e).build());
         }
     }
 
