@@ -15,23 +15,16 @@ import org.onosproject.net.DeviceId;
 import org.slf4j.Logger;
 
 import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.PATCH;
 import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-//import javax.ws.rs.ApiParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -41,7 +34,6 @@ import javax.ws.rs.container.Suspended;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
-import static javax.ws.rs.core.Response.Status.CREATED;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.onlab.util.Tools.readTreeFromStream;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -52,14 +44,10 @@ import static org.slf4j.LoggerFactory.getLogger;
 @Path("/")
 public class CallhomeWebResources extends AbstractWebResource {
 
-    @Context
-    private UriInfo uriInfo;
-
     private static final String JSON_INVALID = "Invalid JSON input";
     private final Logger log = getLogger(getClass());
     private final ObjectNode root = mapper().createObjectNode();
 
-    //private final CallhomeRestconfService crs = get(CallhomeRestconfService.class);
     private final NetconfController nfc = get(NetconfController.class);
     
 
