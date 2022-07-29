@@ -10,16 +10,13 @@ COMPILE_DEPS = CORE_DEPS + JACKSON + [
     "@javax_inject//jar",
     "//utils/rest:onlab-rest",
     "//protocols/netconf/api:onos-protocols-netconf-api",
-    "//drivers/netconf:onos-drivers-netconf",
-    "//drivers/utilities:onos-drivers-utilities",
-
 ]
 
 osgi_jar_with_tests(
     web_context = "/onos/netconfapi",
-    api_description = "REST API for Callhome Device",
+    api_description = "Web API for Netconf Device",
     api_package = "org.onosproject.netconfapi",
-    api_title = "Callhome Device Management Rest API",
+    api_title = "Netconf Device Management Web API",
     api_version = "1.0",
     deps = COMPILE_DEPS,
 )
@@ -27,8 +24,8 @@ osgi_jar_with_tests(
 onos_app(
     app_name = "org.onosproject.netconfapi",
     category = "Utility",
-    description = "API for Callhome Device Management",
+    description = "API for Netconf Device Management",
     required_apps = APPS,
-    title = "API for Callhome Device Management",
+    title = "API for Netconf Device Management",
     url = "http://onosproject.org",
 )

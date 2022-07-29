@@ -23,6 +23,7 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.ApiParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -46,7 +47,7 @@ import static org.onlab.util.Tools.readTreeFromStream;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
- * Manage Callhome Device Configuration
+ * Manage Netconf Device Configuration
  */
 @Path("/")
 public class CallhomeWebResources extends AbstractWebResource {
@@ -68,14 +69,15 @@ public class CallhomeWebResources extends AbstractWebResource {
      * @param device   device identifier
      * @param stream   operation JSON
      * @return status of the request - CREATED if the JSON is correct,
-     * BAD_REQUEST if the JSON is invalid
-     * @onos.rsModel Callhome
+     * BAD_REQUEST if the JSON is invalid,
+     * INTERNAL_SERVER_ERROR if rpc failed
+     * @onos.rsModel NetconfApi
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @Path("data/{device}")
-    public void createData(@PathParam("device") String device, InputStream stream, @Suspended  AsyncResponse response) {
+    public void createData(@PathParam("device") String device, InputStream stream, @Suspended AsyncResponse response) {
         
 
 
@@ -84,8 +86,8 @@ public class CallhomeWebResources extends AbstractWebResource {
 
             this.validateJson(theJsonContent);
 
-            log.info("Received data: {}", theJsonContent);
-            log.info("Target Device: {}", device);
+            log.debug("Received data: {}", theJsonContent);
+            log.debug("Target Device: {}", device);
 
             NetconfDevice nfd = nfc.getDevicesMap().get(DeviceId.deviceId(device));
 

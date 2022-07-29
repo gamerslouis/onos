@@ -53,7 +53,6 @@ import org.onosproject.net.driver.DriverAdminService;
 import org.onosproject.net.driver.DriverService;
 import org.onosproject.net.flow.FlowRuleService;
 import org.onosproject.net.flowobjective.FlowObjectiveService;
-import org.onosproject.net.callhomerestconf.CallhomeRestconfService;
 import org.onosproject.net.group.GroupService;
 import org.onosproject.net.host.HostAdminService;
 import org.onosproject.net.host.HostService;
@@ -223,7 +222,6 @@ public final class DefaultPolicyBuilder {
         permSet.add(new ServicePermission(EdgePortService.class.getName(), ServicePermission.GET));
         permSet.add(new ServicePermission(FlowRuleService.class.getName(), ServicePermission.GET));
         permSet.add(new ServicePermission(FlowObjectiveService.class.getName(), ServicePermission.GET));
-        permSet.add(new ServicePermission(CallhomeRestconfService.class.getName(), ServicePermission.GET));
         permSet.add(new ServicePermission(GroupService.class.getName(), ServicePermission.GET));
         permSet.add(new ServicePermission(HostService.class.getName(), ServicePermission.GET));
         permSet.add(new ServicePermission(IntentService.class.getName(), ServicePermission.GET));
