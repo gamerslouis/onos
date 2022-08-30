@@ -571,13 +571,13 @@ public class NetconfDeviceProvider extends AbstractProvider
                     device.swVersion(), device.serialNumber(),
                     device.chassisId(), (SparseAnnotations) device.annotations());
         }
-
+        // Here is Netconf Device Region
         ChassisId cid = new ChassisId();
         String ipAddress = deviceInfo.ip().toString();
         DefaultAnnotations.Builder annotations = DefaultAnnotations.builder()
                 .set(IPADDRESS, ipAddress)
                 .set(PORT, String.valueOf(deviceInfo.port()))
-                .set(AnnotationKeys.PROTOCOL, SCHEME_NAME.toUpperCase());
+                .set(AnnotationKeys.PROTOCOL, SCHEME_NAME.toUpperCase());  // here set protocol to netconf
         if (deviceInfo.path().isPresent()) {
             annotations.set(PATH, deviceInfo.path().get());
         }
@@ -585,7 +585,7 @@ public class NetconfDeviceProvider extends AbstractProvider
             annotations.set("callhome", "true");
         }
         return new DefaultDeviceDescription(deviceId.uri(), Device.Type.SWITCH,
-                UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, cid, true, annotations.build());
+                UNKNOWN, "WHOAMI", UNKNOWN, UNKNOWN, cid, true, annotations.build());
     }
 
     private void discoverOrUpdatePorts(DeviceId deviceId) {

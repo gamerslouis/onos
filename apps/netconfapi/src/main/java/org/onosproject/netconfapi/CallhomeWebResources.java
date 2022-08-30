@@ -45,11 +45,48 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class CallhomeWebResources extends AbstractWebResource {
 
     private static final String JSON_INVALID = "Invalid JSON input";
+    private static final String GET_CAPABILITY = "<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><get><filter><netconf-state><capabilities></capabilities></netconf-state></filter></get></rpc>";
     private final Logger log = getLogger(getClass());
     private final ObjectNode root = mapper().createObjectNode();
 
     private final NetconfController nfc = get(NetconfController.class);
-    
+
+    /**
+     * Get Device Capabilities
+     *
+     * @param device   device identifier
+     *
+     * @return device capabilities -
+     * OK if device found
+     * NOT_FOUND if device session not found
+     * INTERNAL_SERVER_ERROR if rpc failed
+     */
+    @GET
+    @Produces(MediaType.APPLICATION_XML)
+    @Path("capabilities/{device}")
+    public void createData(@PathParam("device") String device, @Suspended AsyncResponse response) {
+        NetconfDevice nfd = nfc.getDevicesMap().get(DeviceId.deviceId(device));
+
+        try {
+            if (nfd != null) {
+                CompletableFuture<String> op = nfd.getSession().rpc(GET_CAPABILITY);
+
+                String result = op.join();
+                response.resume(Response.status(OK).entity(result).build());
+            }
+            else {
+                log.error("Target Device: {} not found.", device);
+                response.resume(Response.status(NOT_FOUND).entity("Target device not found.").build());
+            }
+        } catch (NetconfException e)  {
+            log.error("Error at netconf session.");
+            response.resume(Response.status(INTERNAL_SERVER_ERROR).entity(e).build());
+        } catch (IllegalArgumentException | IOException e) {
+            log.error("Failed to parse JSON.");
+            response.resume(Response.status(BAD_REQUEST).entity(e).build());
+        }
+
+    }
 
     /**
      * Perform a operation onto specified device.
@@ -81,7 +118,7 @@ public class CallhomeWebResources extends AbstractWebResource {
                 CompletableFuture<String> operation = nfd.getSession().rpc(theJsonContent.path("content").asText());
 
                 String result = operation.join();
-            
+
                 response.resume(Response.status(OK).entity(result).build());
             }
             else {
