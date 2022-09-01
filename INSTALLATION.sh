@@ -1,7 +1,7 @@
 #!/bin/bash
 
 installDeps() {
-    info 'Installing Dependencies...'
+    echo 'Installing Dependencies...'
 
     sudo apt update
     sudo apt install -y build-essential bzip2 curl git maven python2 python3 unzip zip
@@ -10,7 +10,7 @@ installDeps() {
 }
 
 installBazel() {
-    info 'Installing Bazel....'
+    echo 'Installing Bazel....'
 
     wget https://github.com/bazelbuild/bazel/releases/download/1.2.1/bazel-1.2.1-installer-linux-x86_64.sh
     chmod +x bazel-1.2.1-installer-linux-x86_64.sh
@@ -20,9 +20,9 @@ installBazel() {
 }
 
 installOnos() {
-    info 'Installing Onos...'
+    echo 'Installing Onos...'
 
-    cd ~
+    cd ~/
     git clone https://github.com/alex94539/onos
     cd onos
     git checkout netconf-callhome-new
@@ -34,7 +34,7 @@ installOnos() {
 }
 
 addSshInfo() {
-    info 'Adding ssh-rsa algorithm for localhost...'
+    echo 'Adding ssh-rsa algorithm for localhost...'
 
     if [[ ! -f "${HOME}/.ssh/config" ]]; then
         mkdir -p ~/.ssh
@@ -47,7 +47,9 @@ addSshInfo() {
 }
 
 main() {
-    info 'Welcome to onos installation script.'
+    echo 'Welcome to onos installation script.'
+
+    cd ~/
 
     installDeps
     installBazel
@@ -55,9 +57,9 @@ main() {
 
     source ~/.bashrc
 
-    info '*************************************'
-    info '* Environment installation finished *'
-    info '*************************************'
+    echo '*************************************'
+    echo '* Environment installation finished *'
+    echo '*************************************'
 }
 
 main "$@"
