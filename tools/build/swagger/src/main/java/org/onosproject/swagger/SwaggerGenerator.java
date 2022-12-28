@@ -414,6 +414,7 @@ public class SwaggerGenerator {
 
             String annotationName = javaParameter.getName();
 
+            if (javaParameter.getType().getValue().equals("AsyncResponse")) { continue; }
 
             if (pathType != null) { //the parameter is a path or query parameter
                 individualParameterNode.put("name",

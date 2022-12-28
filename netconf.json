@@ -1,0 +1,13 @@
+{
+    "devices": {
+        "netconf:127.0.0.1:830": {
+            "netconf": {
+                "username": "netconf",
+                "password": "netconf"
+            },
+            "basic": {
+                "driver": "netconf"
+            }
+        }
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "devices": {
+        "netconf:0.0.0.1:1": {
+            "netconf-ch": {
+                "server-key": "ssh-rsa ........",
+                "username": "netconf",
+                "password": "netconf"
+            },
+            "basic": {
+                "driver": "netconf"
+            }
+        }
+    }
+}

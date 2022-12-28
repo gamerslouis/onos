@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "title": "configContent",
+  "required": [
+    "content"
+  ],
+  "properties": {
+    "content": {
+      "type": "string",
+      "example": "<xml>hihi I am xml</xml>"
+    }
+  }
+}
